@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { allowedRequest, validFocusRequest, createMacMiddleware, SHORTCUT_NAME } from './macBridge.mjs';
+import { allowedRequest, validFocusRequest, validMeetRequest, validMeetUrl, createMacMiddleware, SHORTCUT_NAME } from './macBridge.mjs';
 
 describe('Mac focus bridge', () => {
   it('rejects remote hosts and cross-origin or cross-site requests', () => {
@@ -15,6 +15,11 @@ describe('Mac focus bridge', () => {
     assert.equal(validFocusRequest(request, now), true);
     for (const deadline of [now, now - 1, now + 120 * 60000 + 1, Infinity, 'tomorrow']) assert.equal(validFocusRequest({ ...request, deadline }, now), false);
     assert.equal(validFocusRequest({ ...request, requestId: '$(whoami)' }, now), false);
+  });
+  it('only accepts authenticated action data for meet.google.com', () => {
+    assert.equal(validMeetUrl('https://meet.google.com/abc-defg-hij'), true);
+    assert.equal(validMeetRequest({ url: 'https://meet.google.com/abc-defg-hij?authuser=1', requestId: '12345678-1234-1234-1234-123456789012' }), true);
+    for (const url of ['http://meet.google.com/abc-defg-hij', 'https://evil.example/abc', 'https://meet.google.com.evil.example/abc', 'file:///etc/passwd']) assert.equal(validMeetUrl(url), false);
   });
   it('passes the exact expiry to the fixed shortcut once, with no real Focus change', async () => {
     if (process.platform !== 'darwin') return;
@@ -48,9 +53,32 @@ describe('Mac focus bridge', () => {
     try {
       const base = `http://127.0.0.1:${server.address().port}`;
       const status = await (await fetch(`${base}/api/mac/status`)).json();
-      assert.equal(status.ready, false);
+      assert.equal(status.ready, true);
+      assert.equal(status.focusReady, false);
       const response = await fetch(`${base}/api/mac/focus`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Rasp-Request': 'focus' }, body: JSON.stringify({ deadline: Date.now() + 60000, requestId: '12345678-1234-1234-1234-123456789012' }) });
       assert.equal(response.status, 409);
+    } finally { await new Promise(resolve => server.close(resolve)); }
+  });
+  it('forwards a valid Meet link from Linux to the configured companion', async () => {
+    let forwarded;
+    const middleware = createMacMiddleware({
+      platform: 'linux',
+      store: { load: async () => ({ url: 'http://127.0.0.1:4175', token: 'x'.repeat(64) }) },
+      request: async (url, options) => {
+        forwarded = { url, options };
+        return new Response(JSON.stringify({ message: 'Google Meet se abrió en tu Mac.' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      },
+    });
+    const server = createServer((req, res) => void middleware(req, res, () => { res.writeHead(404); res.end(); }));
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const response = await fetch(`http://127.0.0.1:${server.address().port}/api/mac/open-meet`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Rasp-Request': 'open-meet' },
+        body: JSON.stringify({ url: 'https://meet.google.com/abc-defg-hij', requestId: '12345678-1234-1234-1234-123456789012' }),
+      });
+      assert.equal(response.status, 200);
+      assert.equal(forwarded.url, 'http://127.0.0.1:4175/open-meet');
+      assert.equal(forwarded.options.headers.Authorization, `Bearer ${'x'.repeat(64)}`);
     } finally { await new Promise(resolve => server.close(resolve)); }
   });
 });

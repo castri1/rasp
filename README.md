@@ -2,7 +2,7 @@
 
 Aplicación para una pantalla táctil horizontal de 7 pulgadas, con agenda, Pomodoro y ajustes integrados en un lienzo de 800 × 480. Incluye un entorno externo para probar escenarios de calendario a tamaño original o ampliado.
 
-**Funcional hoy:** temporizador real, preferencias de colores persistentes, cuatro paletas completas, conexión de solo lectura con Google Calendar y conexión local con Atajos de macOS. **Datos de ejemplo:** el entorno de demostración y la apertura de Google Meet. El enlace Raspberry–Mac sigue pendiente.
+**Funcional hoy:** temporizador real, preferencias de colores persistentes, cuatro paletas completas, conexión de solo lectura con Google Calendar y un acompañante seguro para abrir Google Meet en el Mac. **Datos de ejemplo:** el entorno de demostración fuera de `/app`.
 
 ## Ejecutar
 
@@ -14,14 +14,14 @@ npm run dev -- --port 5173
 - http://127.0.0.1:5173/ — aplicación dentro del entorno de demostración.
 - http://127.0.0.1:5173/app — solo la aplicación, sin controles de demostración. A 800 × 480 ocupa toda la pantalla; en otras resoluciones conserva la proporción.
 
-Para ejecutar la compilación de producción, con la conexión local al Mac:
+Para ejecutar la compilación de producción:
 
 ```sh
 npm run build
 npm start
 ```
 
-Abre http://127.0.0.1:4173/app. Ambos servidores escuchan únicamente en este computador.
+Abre http://127.0.0.1:4173/app. El servidor escucha únicamente en este computador.
 
 ## Instalar y actualizar desde GitHub
 
@@ -86,8 +86,8 @@ de inicio de labwc; en versiones anteriores utiliza el inicio automático XDG.
 
 Después del primer despliegue, reinicia la Raspberry para validar que el servidor
 y la pantalla se recuperan sin intervención. Los ajustes de colores y Pomodoro se
-guardan en el perfil local de Chromium; la futura credencial de Home Assistant se
-guardará con permisos privados en `~/.local/share/rasp/.rasp`.
+guardan en el perfil local de Chromium; las credenciales de Home Assistant,
+Google y el Mac se guardan con permisos privados en `~/.local/share/rasp/.rasp`.
 
 El método por red local queda disponible para desarrollo. Si el Mac no puede
 entrar por SSH, deja `npm run preview:pi` activo y ejecuta esto en una terminal
@@ -151,9 +151,17 @@ Mac el JSON del cliente OAuth de escritorio y envíalo por SCP. El importador
 incluido valida el tipo de cliente, guarda las credenciales con permisos
 privados y nunca imprime el secreto. El archivo JSON no debe añadirse a GitHub.
 
-## No molestar en este Mac
+## Google Meet y No molestar en este Mac
 
-La conexión ejecuta un atajo local a través de la CLI oficial de Apple. El proyecto incluye el servicio que lo llama tanto en desarrollo como en producción. Requiere configurar el atajo una vez en el Mac:
+Instala una vez el acompañante y el túnel cifrado desde este Mac:
+
+```sh
+npm run install:mac
+```
+
+La Raspberry podrá abrir únicamente enlaces HTTPS de `meet.google.com` en el navegador predeterminado de este Mac. El acompañante sólo escucha en loopback, usa una clave privada compartida y arranca automáticamente con la sesión del Mac. Consulta [la guía del acompañante](docs/MAC_COMPANION.md).
+
+Para activar No molestar con Pomodoro, configura además este atajo una vez en el Mac:
 
 1. Abre **Atajos** y crea un atajo llamado exactamente **Rasp Focus**.
 2. Añade **Obtener fechas de la entrada** (Get Dates from Input) y usa **Entrada del atajo** (Shortcut Input) como entrada. Rasp le enviará un archivo de texto con una fecha ISO 8601, incluida su zona horaria UTC.
@@ -167,7 +175,7 @@ Cuando la opción está activada, comenzar o continuar una sesión de enfoque en
 
 Rasp confirma que el atajo terminó de ejecutarse; no puede comprobar la configuración interna del atajo ni leer el modo de concentración efectivo de macOS. Si el atajo falta, falla o no confirma su ejecución a tiempo, muestra el problema y el temporizador continúa.
 
-Esta conexión solo funciona cuando el servidor de Rasp se ejecuta en macOS. No se ha configurado ni activado No molestar automáticamente durante el desarrollo. El atajo aún debe crearse en este Mac. El emparejamiento y transporte desde una Raspberry por la red local se implementarán en una etapa posterior.
+Google Meet funciona aunque el atajo aún no exista. El atajo **Rasp Focus** todavía debe crearse manualmente en este Mac.
 
 Referencia de Apple: [Ejecutar atajos desde la línea de comandos](https://support.apple.com/guide/shortcuts-mac/run-shortcuts-from-the-command-line-apd455c82f02/mac).
 
@@ -179,8 +187,8 @@ Referencia de Apple: [Ejecutar atajos desde la línea de comandos](https://suppo
 - `src/SettingsScreen.tsx`, `src/ColorEditor.tsx`: ajustes integrados.
 - `src/theme.ts`, `src/presets.ts`, `src/useTheme.ts`: colores, presets, validación, persistencia y deshacer.
 - `src/pomodoro.ts`, `src/usePomodoro.ts`, `src/PomodoroScreen.tsx`: estado del temporizador, persistencia y pantalla.
-- `src/macFocus.ts`: cliente de la conexión local con macOS.
-- `server/macBridge.mjs`: estado del atajo y ejecución con hora de vencimiento acotada. Solo acepta el atajo fijo, solicitudes del mismo origen y conexiones por loopback. No acepta comandos arbitrarios.
+- `src/macFocus.ts`: cliente del acompañante de macOS.
+- `server/macBridge.mjs`, `server/macCompanion.mjs`: puente autenticado, apertura validada de Meet y ejecución del atajo con una hora de vencimiento acotada.
 - `server/googleCalendar.mjs`: OAuth local con PKCE, consulta de reuniones, extracción segura de Meet y caché privada de la agenda.
 - `server/index.mjs`: servidor de producción para la aplicación y el servicio local.
 - `src/*.test.ts`, `server/macBridge.test.mjs`: pruebas de alertas, colores, reloj, persistencia y conexión con Atajos. Las pruebas del servicio usan un ejecutor simulado y no cambian el modo del Mac.
@@ -189,8 +197,8 @@ La fuente Manrope se sirve localmente y los iconos son de Phosphor. No se requie
 
 ## Ambiente y Alexa
 
-El módulo **Ambiente** permite preparar y ejecutar cuatro escenas mediante las rutinas de tu cuenta de Alexa: Enfoque, Descanso, Reunión y Fin del día. En **Ajustes → Alexa** están la guía, la conexión con Home Assistant, el selector de dispositivo y las frases de las rutinas. Enfoque y Descanso pueden activarse al comenzar una nueva sesión de Pomodoro, de forma opcional.
+El módulo **Escenas** permite crear, editar y borrar hasta doce escenas mediante las rutinas o comandos de tu cuenta de Alexa. En **Ajustes → Alexa** están la conexión con Home Assistant, el selector de dispositivo y la configuración completa de cada escena. Cualquier escena puede asignarse al inicio de Enfoque o Descanso.
 
-La conexión real requiere Home Assistant con la integración **Alexa Devices**, un dispositivo Alexa compatible y un token de acceso. Todavía no se ha instalado ni vinculado Home Assistant en este proyecto. Las pruebas del servicio usan respuestas simuladas y no accionan bombillos.
+La instalación actual ya está vinculada con Home Assistant y **Alexa Devices**. Rasp pulsa directamente una rutina cuando el nombre coincide; para otros textos usa `alexa_devices.send_text_command` sobre el Echo seleccionado.
 
 Consulta [la guía de conexión](docs/ALEXA.md) para los pasos de instalación, autenticación, rutinas, almacenamiento y límites actuales.

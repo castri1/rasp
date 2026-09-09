@@ -11,6 +11,7 @@
     "preview:pi": "npm run bundle:pi && node server/lanPreview.mjs",
     "deploy:pi": "bash scripts/deploy-to-pi.sh",
     "install:pi": "bash scripts/install-pi.sh",
+    "install:mac": "bash scripts/install-mac-companion.sh",
     "update:pi": "bash scripts/update-pi.sh",
     "start": "node server/index.mjs",
     "test": "vitest run src && node --test server/*.test.mjs"

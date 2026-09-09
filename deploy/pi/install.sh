@@ -43,7 +43,7 @@ mkdir -p "$INSTALL_DIR" "$INSTALL_DIR/.rasp"
 rm -rf "$INSTALL_DIR/dist" "$INSTALL_DIR/server" "$INSTALL_DIR/scripts"
 cp -R "$SOURCE_DIR/dist" "$INSTALL_DIR/dist"
 mkdir -p "$INSTALL_DIR/server" "$INSTALL_DIR/scripts"
-cp "$SOURCE_DIR/server/index.mjs" "$SOURCE_DIR/server/macBridge.mjs" "$SOURCE_DIR/server/alexaBridge.mjs" "$SOURCE_DIR/server/googleCalendar.mjs" "$INSTALL_DIR/server/"
+cp "$SOURCE_DIR/server/index.mjs" "$SOURCE_DIR/server/macBridge.mjs" "$SOURCE_DIR/server/alexaBridge.mjs" "$SOURCE_DIR/server/homeBridge.mjs" "$SOURCE_DIR/server/googleCalendar.mjs" "$INSTALL_DIR/server/"
 if [[ -f "$SOURCE_DIR/scripts/diagnose-google.mjs" ]]; then
   cp "$SOURCE_DIR/scripts/diagnose-google.mjs" "$INSTALL_DIR/scripts/diagnose-google.mjs"
 fi

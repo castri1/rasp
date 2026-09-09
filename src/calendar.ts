@@ -7,6 +7,7 @@ export interface CalendarEvent {
   people: string[];
   location: string;
   hasMeet: boolean;
+  meetUrl?: string;
 }
 
 export type Dataset = 'standard' | 'long' | 'busy' | 'overlap' | 'no-meet';

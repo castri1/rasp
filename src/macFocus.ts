@@ -1,18 +1,23 @@
 import { useEffect, useState } from 'react';
 import { createRequestId, timeoutSignal } from './browserCompat';
-export interface MacStatus { available: boolean; ready: boolean; shortcut: string; message: string }
+
+export interface MacStatus { available: boolean; ready: boolean; focusReady: boolean; shortcut: string; message: string }
 export const FOCUS_SHORTCUT = 'Rasp Focus';
 const preferenceKey = 'rasp.macFocus.v1';
-async function api(path: string, body?: object) {
+
+async function api(path: 'status' | 'focus' | 'open-meet', body?: object) {
   const response = await fetch(`/api/mac/${path}`, {
-    method: body ? 'POST' : 'GET', headers: body ? { 'Content-Type': 'application/json', 'X-Rasp-Request': 'focus' } : {},
-    body: body ? JSON.stringify(body) : undefined, signal: timeoutSignal(25000),
+    method: body ? 'POST' : 'GET',
+    headers: body ? { 'Content-Type': 'application/json', 'X-Rasp-Request': path } : {},
+    body: body ? JSON.stringify(body) : undefined,
+    signal: timeoutSignal(25_000),
   });
-  if (!(response.headers.get('content-type') ?? '').includes('application/json')) throw new Error('Inicia Rasp en el Mac para conectar Atajos.');
+  if (!(response.headers.get('content-type') ?? '').includes('application/json')) throw new Error('El acompañante del Mac no está disponible.');
   const data = await response.json();
-  if (!response.ok) throw new Error(data.message || 'El Mac no pudo ejecutar el atajo.');
+  if (!response.ok) throw new Error(data.message || 'El Mac no pudo completar la acción.');
   return data;
 }
+
 export function useMacFocus() {
   const [status, setStatus] = useState<MacStatus | null>(null);
   const [checking, setChecking] = useState(false);
@@ -32,7 +37,7 @@ export function useMacFocus() {
   async function refresh() {
     setChecking(true);
     try { setStatus(await api('status')); }
-    catch { setStatus({ available: false, ready: false, shortcut: FOCUS_SHORTCUT, message: 'El acompañante del Mac no está disponible.' }); }
+    catch { setStatus({ available: false, ready: false, focusReady: false, shortcut: FOCUS_SHORTCUT, message: 'El acompañante del Mac no está disponible.' }); }
     finally { setChecking(false); }
   }
   useEffect(() => { void refresh(); }, []);
@@ -45,6 +50,11 @@ export function useMacFocus() {
     } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo activar No molestar. El Pomodoro sigue en marcha.'); }
     finally { setRequesting(false); }
   }
-  return { status, checking, enabled, setEnabled, message, requesting, refresh, activate, storageAvailable };
+  async function openMeet(url: string) {
+    const result = await api('open-meet', { url, requestId: createRequestId() });
+    return result.message as string;
+  }
+  return { status, checking, enabled, setEnabled, message, requesting, refresh, activate, openMeet, storageAvailable };
 }
+
 export type MacFocusController = ReturnType<typeof useMacFocus>;
