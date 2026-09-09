@@ -6,14 +6,32 @@ El módulo está en **Ambiente** y su configuración en **Ajustes → Alexa**. L
 
 El módulo y el conector están implementados. Home Assistant todavía no está instalado y no se ha vinculado ninguna cuenta de Amazon ni accionado una luz real. Las pruebas del conector emplean respuestas simuladas, sin comunicarse con Amazon.
 
-## 1. Elegir dónde instalar Home Assistant
+## 1. Instalar Home Assistant sin reemplazar Rasp
 
-Para las primeras pruebas se puede usar un equipo disponible. Para el uso diario, el equipo que aloje Home Assistant y el servidor de Rasp debe permanecer encendido. El Mac solo puede apagarse sin perder el control de luces cuando estos servicios funcionen en otro equipo. Alexa necesita conexión a Internet.
+La Raspberry actual utiliza Debian 13 de 64 bits (`aarch64`). Esa arquitectura
+sigue soportada por Home Assistant y permite ejecutar **Home Assistant
+Container** junto a Rasp. No se debe instalar Home Assistant OS en esta misma
+tarjeta: sustituiría Debian, Chromium y la aplicación de la pantalla.
 
-La guía actual de Home Assistant recomienda Raspberry Pi 4 o 5 con al menos 2 GB de RAM. La Pi 3 B del proyecto tiene que atender también la pantalla y el navegador; conviene planificar el puente en otro equipo, en lugar de asumir que ambas cargas funcionarán bien en ella. Home Assistant OS instalado en una Pi sustituye su sistema y la instalación sobrescribe la tarjeta SD: no es una aplicación que se agregue al escritorio existente.
+La Pi 3 B tiene solo 1 GB de RAM. La instalación es válida, pero debe probarse
+con la pantalla real y vigilar que Chromium continúe fluido. Si aparece uso
+frecuente de swap o lentitud, el directorio de configuración se puede migrar a
+otro equipo sin cambiar el módulo Rasp.
+
+El repositorio incluye un instalador idempotente que instala Docker desde
+Debian y crea el contenedor siguiendo la configuración oficial:
+
+```bash
+cd "$HOME/rasp"
+sudo bash scripts/install-home-assistant.sh
+```
+
+La interfaz queda en `http://pi.local:8123` y la configuración persiste en
+`~/.local/share/homeassistant`. Docker no se concede al usuario sin privilegios;
+las tareas de administración siguen requiriendo `sudo`.
 
 - [Instalación general](https://www.home-assistant.io/installation/)
-- [Instalación en Raspberry Pi](https://www.home-assistant.io/installation/raspberrypi/)
+- [Home Assistant Container en Raspberry Pi](https://www.home-assistant.io/installation/raspberrypi-other/)
 - [Instalación en macOS mediante una máquina virtual](https://www.home-assistant.io/installation/macos/)
 
 No se ha iniciado ninguna instalación ni modificado la Raspberry.
