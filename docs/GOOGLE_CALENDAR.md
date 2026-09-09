@@ -25,6 +25,33 @@ organización:
 
 ## Conectar la Raspberry
 
+### Importar el archivo desde el Mac (recomendado)
+
+En Google Cloud, descarga el JSON del cliente OAuth de escritorio y guárdalo en
+el directorio de tu usuario del Mac con el nombre `google-oauth.json`. No lo
+subas a GitHub.
+
+En el Mac activa temporalmente **Ajustes del Sistema → General → Compartir →
+Sesión remota** y permite el acceso a tu usuario. Luego, en la terminal de la
+Raspberry, descarga el archivo mediante la conexión SSH cifrada e impórtalo:
+
+```bash
+scp daniel@192.168.68.73:/Users/daniel/google-oauth.json "$HOME/google-oauth.json"
+cd "$HOME/rasp"
+node scripts/import-google-client.mjs "$HOME/google-oauth.json"
+rm "$HOME/google-oauth.json"
+sudo systemctl restart rasp.service
+```
+
+La primera conexión puede preguntar si confías en el Mac; escribe `yes` y
+después la contraseña de inicio de sesión del Mac. Puedes desactivar **Sesión
+remota** al terminar. Si cambia la IP del Mac, usa
+`daniel@Daniels-MacBook.local` como origen.
+
+Después abre **Ajustes → Calendario** en Rasp y toca **Conectar con Google**.
+
+### Configurar desde el navegador
+
 1. En Rasp abre **Ajustes → Calendario**.
 2. Toca **Configurar desde mi Mac**. Rasp mostrará una dirección local y un
    código de ocho caracteres.

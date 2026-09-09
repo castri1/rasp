@@ -146,6 +146,11 @@ directorio. No se incluyen en la compilación ni se devuelven a la interfaz.
 Consulta [la guía de Google Workspace](docs/GOOGLE_CALENDAR.md) para crear el
 cliente OAuth interno y completar la autorización.
 
+Para evitar escribir el ID y el secreto en la pantalla táctil, descarga en el
+Mac el JSON del cliente OAuth de escritorio y envíalo por SCP. El importador
+incluido valida el tipo de cliente, guarda las credenciales con permisos
+privados y nunca imprime el secreto. El archivo JSON no debe añadirse a GitHub.
+
 ## No molestar en este Mac
 
 La conexión ejecuta un atajo local a través de la CLI oficial de Apple. El proyecto incluye el servicio que lo llama tanto en desarrollo como en producción. Requiere configurar el atajo una vez en el Mac:

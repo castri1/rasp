@@ -11,7 +11,7 @@ cp -R "$ROOT/dist" "$STAGE/rasp-deploy/dist"
 cp "$ROOT/server/index.mjs" "$ROOT/server/macBridge.mjs" "$ROOT/server/alexaBridge.mjs" "$ROOT/server/googleCalendar.mjs" "$STAGE/rasp-deploy/server/"
 cp -R "$ROOT/deploy/pi" "$STAGE/rasp-deploy/deploy/pi"
 mkdir -p "$STAGE/rasp-deploy/scripts"
-cp "$ROOT/scripts/diagnose-google.mjs" "$STAGE/rasp-deploy/scripts/"
+cp "$ROOT/scripts/diagnose-google.mjs" "$ROOT/scripts/import-google-client.mjs" "$STAGE/rasp-deploy/scripts/"
 chmod 0755 "$STAGE/rasp-deploy/deploy/pi/install.sh"
 
 tar -C "$STAGE" -czf "$ARTIFACT_DIR/rasp-pi.tar.gz" rasp-deploy

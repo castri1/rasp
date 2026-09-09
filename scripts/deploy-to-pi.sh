@@ -15,7 +15,7 @@ npm run build
 
 ssh "$TARGET" "mkdir -p ~/$REMOTE_DIR"
 rsync -az --delete --relative \
-  ./dist ./server ./deploy/pi ./scripts/diagnose-google.mjs \
+  ./dist ./server ./deploy/pi ./scripts/diagnose-google.mjs ./scripts/import-google-client.mjs \
   "$TARGET:~/$REMOTE_DIR/"
 
 ssh -t "$TARGET" "~/$REMOTE_DIR/deploy/pi/install.sh ~/$REMOTE_DIR"
