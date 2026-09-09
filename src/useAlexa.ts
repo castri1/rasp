@@ -14,7 +14,7 @@ async function api(path: string, body?: object) {
 }
 export function useAlexa() {
   const [config, setConfig] = useState<AlexaConfig>(EMPTY_ALEXA);
-  const [connection, setConnection] = useState<AlexaConnection>({ state: 'loading', message: 'Comprobando la configuración…', devices: [] });
+  const [connection, setConnection] = useState<AlexaConnection>({ state: 'loading', message: 'Comprobando la configuración…', devices: [], routines: [] });
   const [busy, setBusy] = useState(false);
   const [pendingScene, setPendingScene] = useState<SceneId | null>(null);
   const [lastSent, setLastSent] = useState<{ scene: SceneId; sentAt: string } | null>(null);
@@ -23,14 +23,14 @@ export function useAlexa() {
   useEffect(() => {
     let active = true;
     api('config').then(result => { if (active) { setConfig(result.config); setConnection(result.connection); } }).catch(() => {
-      if (active) setConnection({ state: 'offline', message: 'El servicio de conexión de Rasp no está disponible.', devices: [] });
+      if (active) setConnection({ state: 'offline', message: 'El servicio de conexión de Rasp no está disponible.', devices: [], routines: [] });
     });
     return () => { active = false; };
   }, []);
   async function check() {
     setBusy(true); setMessage(''); setError(false);
     try { const result = await api('check', {}); setConnection(result.connection); return result.connection as AlexaConnection; }
-    catch (err) { const text = err instanceof Error ? err.message : 'No se pudo comprobar la conexión.'; setMessage(text); setError(true); setConnection({ state: 'error', devices: [], message: text }); return null; }
+    catch (err) { const text = err instanceof Error ? err.message : 'No se pudo comprobar la conexión.'; setMessage(text); setError(true); setConnection({ state: 'error', devices: [], routines: [], message: text }); return null; }
     finally { setBusy(false); }
   }
   async function save(next: AlexaConfig, token: string) {
@@ -38,7 +38,7 @@ export function useAlexa() {
     try {
       const result = await api('config', { ...next, token });
       setConfig(result.config); setMessage(result.message);
-      setConnection(previous => ({ ...previous, devices: config.url === next.url ? previous.devices : [], state: next.url ? 'unchecked' : 'not_configured', message: next.url ? 'Configuración guardada. Comprueba la conexión.' : 'Conecta Home Assistant para ejecutar tus escenas.' }));
+      setConnection(previous => ({ ...previous, devices: config.url === next.url ? previous.devices : [], routines: config.url === next.url ? previous.routines : [], state: next.url ? 'unchecked' : 'not_configured', message: next.url ? 'Configuración guardada. Comprueba la conexión.' : 'Conecta Home Assistant para ejecutar tus escenas.' }));
       return true;
     } catch (err) { setMessage(err instanceof Error ? err.message : 'No se pudo guardar.'); setError(true); return false; }
     finally { setBusy(false); }

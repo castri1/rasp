@@ -4,7 +4,7 @@ import { createServer } from 'node:http';
 import { mkdtemp, rm, stat, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createAlexaMiddleware, createConfigStore, EMPTY_CONFIG, normalizeUrl, publicConfig, validateConfig, DEVICES_TEMPLATE } from './alexaBridge.mjs';
+import { createAlexaMiddleware, createConfigStore, EMPTY_CONFIG, normalizeUrl, publicConfig, validateConfig, DEVICES_TEMPLATE, ROUTINES_TEMPLATE } from './alexaBridge.mjs';
 const deviceId = 'a'.repeat(32);
 const token = 'test-token-with-no-real-permissions';
 const configured = { ...structuredClone(EMPTY_CONFIG), url: 'http://homeassistant.local:8123', token, deviceId, commands: { focus: 'activa enfoque rasp', break: 'activa descanso rasp', meeting: '', evening: '' } };
@@ -29,8 +29,14 @@ function upstream(log) {
     assert.equal(options.headers.Authorization, `Bearer ${token}`);
     assert.equal(options.redirect, 'error');
     if (url.endsWith('/services')) return Response.json([{ domain: 'alexa_devices', services: { send_text_command: {} } }]);
-    if (url.endsWith('/template')) { assert.deepEqual(JSON.parse(options.body), { template: DEVICES_TEMPLATE }); return Response.json([{ id: deviceId, name: 'Echo de prueba' }]); }
+    if (url.endsWith('/template')) {
+      const { template } = JSON.parse(options.body);
+      if (template === DEVICES_TEMPLATE) return Response.json([{ id: deviceId, name: 'Echo de prueba' }]);
+      assert.equal(template, ROUTINES_TEMPLATE);
+      return Response.json([{ entityId: 'button.cuenta_relax', name: 'relax' }]);
+    }
     if (url.endsWith('/services/alexa_devices/send_text_command')) return Response.json([]);
+    if (url.endsWith('/services/button/press')) return Response.json([]);
     throw new Error('Unexpected endpoint');
   };
 }
@@ -62,12 +68,26 @@ describe('Alexa through Home Assistant', () => {
       assert.ok(!JSON.stringify(config).includes(token));
       const check = await request('check', {});
       assert.equal(check.data.connection.state, 'ready');
+      assert.deepEqual(check.data.connection.routines, [{ entityId: 'button.cuenta_relax', name: 'relax' }]);
       const input = { scene: 'focus', source: 'manual', requestId: 'request-1234567890', command: 'injected command' };
       assert.equal((await request('run', input)).status, 200);
       assert.equal((await request('run', input)).status, 200);
       const commands = calls.filter(call => call.url.endsWith('send_text_command'));
       assert.equal(commands.length, 1);
       assert.deepEqual(JSON.parse(commands[0].options.body), { device_id: deviceId, text_command: 'activa enfoque rasp' });
+    });
+  });
+  it('presses a matching Alexa routine directly instead of sending its name as text', async () => {
+    const calls = [];
+    const routineConfig = { ...configured, commands: { ...configured.commands, focus: '  RELÁX  ' } };
+    await serve({ store: memoryStore(routineConfig), request: upstream(calls) }, async request => {
+      const result = await request('run', { scene: 'focus', source: 'manual', requestId: 'request-1234567894' });
+      assert.equal(result.status, 200);
+      assert.equal(result.data.message, 'Rutina «relax» ejecutada.');
+      const presses = calls.filter(call => call.url.endsWith('/services/button/press'));
+      assert.equal(presses.length, 1);
+      assert.deepEqual(JSON.parse(presses[0].options.body), { entity_id: 'button.cuenta_relax' });
+      assert.equal(calls.some(call => call.url.endsWith('send_text_command')), false);
     });
   });
   it('blocks cross-origin requests and disabled automatic actions without sending commands', async () => {

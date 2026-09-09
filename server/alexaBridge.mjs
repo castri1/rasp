@@ -7,6 +7,7 @@ export const SCENE_IDS = ['focus', 'break', 'meeting', 'evening'];
 export const EMPTY_CONFIG = { version: 1, url: '', token: '', deviceId: '', commands: { focus: '', break: '', meeting: '', evening: '' }, automatic: { focus: false, break: false } };
 // Read only the devices belonging to Alexa Devices; never accept templates from the browser.
 export const DEVICES_TEMPLATE = `{% set ns = namespace(items=[], ids=[]) %}{% for entity in integration_entities('alexa_devices') %}{% set id = device_id(entity) %}{% if id and id not in ns.ids %}{% set ns.ids = ns.ids + [id] %}{% set ns.items = ns.items + [{'id': id, 'name': device_attr(id, 'name_by_user') or device_attr(id, 'name') or 'Dispositivo Alexa'}] %}{% endif %}{% endfor %}{{ ns.items | to_json }}`;
+export const ROUTINES_TEMPLATE = `{% set ns = namespace(items=[]) %}{% for entity in integration_entities('alexa_devices') %}{% if entity.startswith('button.') and not entity.endswith('_restart') %}{% set id = device_id(entity) %}{% set device_name = device_attr(id, 'name_by_user') or device_attr(id, 'name') or '' %}{% set friendly = state_attr(entity, 'friendly_name') or entity %}{% set prefix = device_name ~ ' ' %}{% set display = friendly[(prefix | length):] if device_name and friendly.startswith(prefix) else friendly %}{% set ns.items = ns.items + [{'entityId': entity, 'name': display}] %}{% endif %}{% endfor %}{{ ns.items | to_json }}`;
 class BridgeError extends Error { constructor(message, status = 400, code = 'invalid') { super(message); this.status = status; this.code = code; } }
 export function normalizeUrl(value) {
   try {
@@ -58,6 +59,9 @@ function reply(res, code, data) {
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
   res.end(JSON.stringify(data));
 }
+function normalizedCommand(value) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('es');
+}
 async function body(req) {
   let value = '';
   for await (const part of req) { value += part; if (value.length > 16000) throw new BridgeError('Solicitud demasiado grande.'); }
@@ -80,16 +84,20 @@ export function createAlexaMiddleware({ store = createConfigStore(), request = f
     try { return await response.json(); } catch { throw new BridgeError('La dirección no devuelve una respuesta válida de Home Assistant.', 502, 'invalid_response'); }
   }
   async function probe(config) {
-    if (!config.url || !config.token) return { state: 'not_configured', devices: [], message: 'Conecta Home Assistant para usar tus rutinas de Alexa.' };
+    if (!config.url || !config.token) return { state: 'not_configured', devices: [], routines: [], message: 'Conecta Home Assistant para usar tus rutinas de Alexa.' };
     const services = await call(config, 'services');
     if (!Array.isArray(services)) throw new BridgeError('La respuesta de Home Assistant no es válida.', 502);
-    if (!services.some(item => item.domain === 'alexa_devices' && item.services && Object.hasOwn(item.services, 'send_text_command'))) return { state: 'alexa_missing', devices: [], message: 'Home Assistant conectado. Añade la integración Alexa Devices para continuar.' };
-    const result = await call(config, 'template', { template: DEVICES_TEMPLATE });
-    if (!Array.isArray(result)) throw new BridgeError('No se pudo obtener la lista de dispositivos Alexa.', 502);
-    const devices = result.filter(item => /^[a-f0-9]{32}$/i.test(item?.id) && typeof item.name === 'string').map(item => ({ id: item.id, name: item.name.slice(0, 120) }));
-    if (!devices.length) return { state: 'no_devices', devices, message: 'Alexa está vinculada, pero aún no aparecen dispositivos. Revisa Alexa Devices.' };
-    if (!devices.some(item => item.id === config.deviceId)) return { state: 'choose_device', devices, message: 'Selecciona el Echo que ejecutará tus rutinas.' };
-    return { state: 'ready', devices, message: 'Conexión lista. Puedes enviar tus escenas a Alexa.' };
+    if (!services.some(item => item.domain === 'alexa_devices' && item.services && Object.hasOwn(item.services, 'send_text_command'))) return { state: 'alexa_missing', devices: [], routines: [], message: 'Home Assistant conectado. Añade la integración Alexa Devices para continuar.' };
+    const [deviceResult, routineResult] = await Promise.all([
+      call(config, 'template', { template: DEVICES_TEMPLATE }),
+      call(config, 'template', { template: ROUTINES_TEMPLATE }),
+    ]);
+    if (!Array.isArray(deviceResult) || !Array.isArray(routineResult)) throw new BridgeError('No se pudo obtener la lista de dispositivos y rutinas de Alexa.', 502);
+    const devices = deviceResult.filter(item => /^[a-f0-9]{32}$/i.test(item?.id) && typeof item.name === 'string').map(item => ({ id: item.id, name: item.name.slice(0, 120) }));
+    const routines = routineResult.filter(item => /^button\.[a-z0-9_]+$/.test(item?.entityId) && typeof item.name === 'string').map(item => ({ entityId: item.entityId, name: item.name.slice(0, 120) }));
+    if (!devices.length) return { state: 'no_devices', devices, routines, message: 'Alexa está vinculada, pero aún no aparecen dispositivos. Revisa Alexa Devices.' };
+    if (!devices.some(item => item.id === config.deviceId)) return { state: 'choose_device', devices, routines, message: 'Selecciona el Echo que ejecutará tus rutinas.' };
+    return { state: 'ready', devices, routines, message: 'Conexión lista. Puedes enviar tus escenas a Alexa.' };
   }
   return async (req, res, next) => {
     const path = req.url?.split('?')[0];
@@ -98,7 +106,7 @@ export function createAlexaMiddleware({ store = createConfigStore(), request = f
     try {
       if (path === '/api/alexa/config' && req.method === 'GET') {
         const config = await store.load();
-        return reply(res, 200, { config: publicConfig(config), connection: check || { state: config.url ? 'unchecked' : 'not_configured', devices: [], message: config.url ? 'Comprueba la conexión para actualizar sus dispositivos.' : 'Conecta Home Assistant para usar tus rutinas de Alexa.' } });
+        return reply(res, 200, { config: publicConfig(config), connection: check || { state: config.url ? 'unchecked' : 'not_configured', devices: [], routines: [], message: config.url ? 'Comprueba la conexión para actualizar sus dispositivos.' : 'Conecta Home Assistant para usar tus rutinas de Alexa.' } });
       }
       if (req.method !== 'POST' || !['/api/alexa/config', '/api/alexa/check', '/api/alexa/run'].includes(path)) return reply(res, 404, { message: 'Acción no disponible.' });
       if (!req.headers['content-type']?.startsWith('application/json') || req.headers['x-rasp-request'] !== 'alexa') throw new BridgeError('Solicitud no válida.');
@@ -115,8 +123,13 @@ export function createAlexaMiddleware({ store = createConfigStore(), request = f
             if (input.source === 'automatic' && !config.automatic[input.scene]) throw new BridgeError('Esta acción automática está desactivada.', 409);
             check = await probe(config);
             if (check.state !== 'ready') throw new BridgeError(check.message, 409, check.state);
+            const routine = check.routines.find(item => normalizedCommand(item.name) === normalizedCommand(config.commands[input.scene]));
+            if (routine) {
+              await call(config, 'services/button/press', { entity_id: routine.entityId });
+              return { status: 200, data: { message: `Rutina «${routine.name}» ejecutada.`, scene: input.scene, sentAt: new Date().toISOString() } };
+            }
             await call(config, 'services/alexa_devices/send_text_command', { device_id: config.deviceId, text_command: config.commands[input.scene] });
-            return { status: 200, data: { message: 'Orden enviada a Alexa. Comprueba el resultado en tus luces.', scene: input.scene, sentAt: new Date().toISOString() } };
+            return { status: 200, data: { message: 'Comando enviado a Alexa. Comprueba el resultado en tus dispositivos.', scene: input.scene, sentAt: new Date().toISOString() } };
           } catch (error) { return { status: error.status || 500, data: { message: error instanceof BridgeError ? error.message : 'No se pudo enviar la orden a Alexa.', code: error.code || 'error' } }; }
           finally { busy = false; }
         })();
@@ -140,7 +153,7 @@ export function createAlexaMiddleware({ store = createConfigStore(), request = f
         return reply(res, 200, { connection: check });
       } finally { busy = false; }
     } catch (error) {
-      if (path === '/api/alexa/check') check = { state: error.code || 'error', devices: [], message: error instanceof BridgeError ? error.message : 'No se pudo comprobar la conexión.' };
+      if (path === '/api/alexa/check') check = { state: error.code || 'error', devices: [], routines: [], message: error instanceof BridgeError ? error.message : 'No se pudo comprobar la conexión.' };
       return reply(res, error.status || 500, { message: error instanceof BridgeError ? error.message : 'No se pudo guardar o leer la configuración de Alexa.', code: error.code || 'error' });
     }
   };
