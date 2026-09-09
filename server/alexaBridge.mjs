@@ -152,7 +152,7 @@ export function createAlexaMiddleware({ store = createConfigStore(), request = f
             const routine = check.routines.find(item => normalizedCommand(item.name) === normalizedCommand(scene.command));
             if (routine) {
               await call(config, 'services/button/press', { entity_id: routine.entityId });
-              return { status: 200, data: { message: `Rutina «${routine.name}» ejecutada.`, scene: input.scene, sentAt: new Date().toISOString() } };
+              return { status: 200, data: { message: `Rutina «${routine.name}» enviada a Alexa.`, scene: input.scene, sentAt: new Date().toISOString() } };
             }
             await call(config, 'services/alexa_devices/send_text_command', { device_id: config.deviceId, text_command: scene.command });
             return { status: 200, data: { message: 'Comando enviado a Alexa. Comprueba el resultado en tus dispositivos.', scene: input.scene, sentAt: new Date().toISOString() } };

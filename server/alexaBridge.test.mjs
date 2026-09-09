@@ -83,7 +83,7 @@ describe('Alexa through Home Assistant', () => {
     await serve({ store: memoryStore(routineConfig), request: upstream(calls) }, async request => {
       const result = await request('run', { scene: 'focus', source: 'manual', requestId: 'request-1234567894' });
       assert.equal(result.status, 200);
-      assert.equal(result.data.message, 'Rutina «relax» ejecutada.');
+      assert.equal(result.data.message, 'Rutina «relax» enviada a Alexa.');
       const presses = calls.filter(call => call.url.endsWith('/services/button/press'));
       assert.equal(presses.length, 1);
       assert.deepEqual(JSON.parse(presses[0].options.body), { entity_id: 'button.cuenta_relax' });
