@@ -149,10 +149,12 @@ export function createGoogleConfigStore(file = resolve('.rasp/google-calendar.js
 
 export function createCalendarCache(file = resolve('.rasp/calendar-cache.json')) {
   return {
-    async load() {
+    async load(range) {
       try {
         const data = JSON.parse(await readFile(file, 'utf8'));
-        return data.version === 1 && Array.isArray(data.events) ? data : null;
+        if (data.version === 1 && Array.isArray(data.events)) return data;
+        if (data.version !== 2 || !Array.isArray(data.ranges)) return null;
+        return data.ranges.find(item => item.timeMin === range?.timeMin && item.timeMax === range?.timeMax) || null;
       } catch (error) {
         if (error.code === 'ENOENT') return null;
         throw error;
@@ -161,7 +163,14 @@ export function createCalendarCache(file = resolve('.rasp/calendar-cache.json'))
     async save(data) {
       await mkdir(dirname(file), { recursive: true, mode: 0o700 });
       const temp = `${file}.${randomUUID()}.tmp`;
-      await writeFile(temp, JSON.stringify({ version: 1, ...data }), { mode: 0o600 });
+      let ranges = [];
+      try {
+        const previous = JSON.parse(await readFile(file, 'utf8'));
+        if (previous.version === 2 && Array.isArray(previous.ranges)) ranges = previous.ranges;
+        else if (previous.version === 1 && Array.isArray(previous.events)) ranges = [previous];
+      } catch { /* A missing or damaged cache can be replaced safely. */ }
+      ranges = [data, ...ranges.filter(item => item.timeMin !== data.timeMin || item.timeMax !== data.timeMax)].slice(0, 8);
+      await writeFile(temp, JSON.stringify({ version: 2, ranges }), { mode: 0o600 });
       await rename(temp, file);
     },
   };
@@ -316,14 +325,25 @@ function plainText(value) {
 }
 
 export function normalizeGoogleEvents(items, timeMin, timeMax) {
-  const dayStart = Date.parse(timeMin);
-  const dayEnd = Date.parse(timeMax);
+  const rangeStart = Date.parse(timeMin);
+  const rangeEnd = Date.parse(timeMax);
+  const dateKey = value => {
+    const date = new Date(value);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
   return items
     .filter(item => item?.status !== 'cancelled' && item?.start?.dateTime && item?.end?.dateTime)
     .filter(item => !item.attendees?.some(attendee => attendee?.self && attendee?.responseStatus === 'declined'))
     .map(item => {
       const startTime = Date.parse(item.start.dateTime);
       const endTime = Date.parse(item.end.dateTime);
+      const startDate = new Date(startTime);
+      const endDate = new Date(endTime);
+      const eventDate = dateKey(startTime);
+      const start = startDate.getHours() * 60 + startDate.getMinutes();
+      const end = dateKey(endTime) === eventDate
+        ? endDate.getHours() * 60 + endDate.getMinutes() + (endDate.getSeconds() || endDate.getMilliseconds() ? 1 : 0)
+        : 1440;
       const meetUrl = googleMeetUrl(item);
       const people = (Array.isArray(item.attendees) ? item.attendees : [])
         .filter(attendee => attendee && !attendee.self && attendee.responseStatus !== 'declined')
@@ -333,8 +353,11 @@ export function normalizeGoogleEvents(items, timeMin, timeMax) {
       return {
         id: String(item.id || item.iCalUID || randomUUID()).slice(0, 300),
         title: plainText(item.summary) || 'Reunión sin título',
-        start: Math.max(0, Math.floor((startTime - dayStart) / 60_000)),
-        end: Math.min(1440, Math.ceil((endTime - dayStart) / 60_000)),
+        start,
+        end,
+        date: eventDate,
+        startAt: new Date(startTime).toISOString(),
+        endAt: new Date(endTime).toISOString(),
         description: plainText(item.description) || 'Sin descripción.',
         people,
         location: meetUrl ? 'Google Meet' : plainText(item.location) || 'Sin ubicación',
@@ -342,8 +365,8 @@ export function normalizeGoogleEvents(items, timeMin, timeMax) {
         meetUrl,
       };
     })
-    .filter(event => Number.isFinite(event.start) && Number.isFinite(event.end) && event.end > event.start && event.start < (dayEnd - dayStart) / 60_000)
-    .sort((a, b) => a.start - b.start || a.id.localeCompare(b.id));
+    .filter(event => Number.isFinite(Date.parse(event.startAt)) && Number.isFinite(Date.parse(event.endAt)) && Date.parse(event.endAt) > rangeStart && Date.parse(event.startAt) < rangeEnd)
+    .sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt) || a.id.localeCompare(b.id));
 }
 
 function validateRange(url) {
@@ -351,7 +374,7 @@ function validateRange(url) {
   const timeMax = url.searchParams.get('timeMax') || '';
   const from = Date.parse(timeMin);
   const to = Date.parse(timeMax);
-  if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from || to - from < 18 * 3_600_000 || to - from > 30 * 3_600_000) {
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from || to - from < 18 * 3_600_000 || to - from > 62 * 24 * 3_600_000) {
     throw new CalendarError('El intervalo solicitado para la agenda no es válido.');
   }
   return { timeMin: new Date(from).toISOString(), timeMax: new Date(to).toISOString() };
@@ -471,7 +494,7 @@ export function createGoogleCalendarMiddleware({
             timeMax: range.timeMax,
             singleEvents: 'true',
             orderBy: 'startTime',
-            maxResults: '100',
+            maxResults: '500',
           });
           const data = await googleGet(`calendars/primary/events?${parameters}`, token);
           const events = normalizeGoogleEvents(Array.isArray(data.items) ? data.items : [], range.timeMin, range.timeMax);
@@ -479,7 +502,7 @@ export function createGoogleCalendarMiddleware({
           await cache.save({ ...range, account: config.account, syncedAt, events }).catch(() => undefined);
           return json(res, 200, { events, account: config.account, syncedAt, source: 'google' });
         } catch (error) {
-          const saved = await cache.load().catch(() => null);
+          const saved = await cache.load(range).catch(() => null);
           if (saved?.timeMin === range.timeMin && saved?.timeMax === range.timeMax) {
             return json(res, 200, { events: saved.events, account: saved.account || config.account, syncedAt: saved.syncedAt, source: 'cache', warning: error.message, warningCode: error.code || 'offline' });
           }

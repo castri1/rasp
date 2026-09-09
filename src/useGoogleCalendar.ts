@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { calendarGridRange } from './calendar';
 import type { CalendarEvent } from './calendar';
 import { timeoutSignal } from './browserCompat';
 
@@ -46,12 +47,17 @@ export function useGoogleCalendar() {
   const [config, setConfig] = useState<GoogleCalendarConfig>(EMPTY_CONFIG);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [source, setSource] = useState<CalendarSource>('none');
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [calendarMessage, setCalendarMessage] = useState('');
+  const [calendarRangeKey, setCalendarRangeKey] = useState('');
   const [syncedAt, setSyncedAt] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState(false);
   const [pairing, setPairing] = useState<GoogleCalendarPairing | null>(null);
+  const rangeRequest = useRef(0);
 
   const loadStatus = useCallback(async () => {
     const result = await api('status');
@@ -81,6 +87,28 @@ export function useGoogleCalendar() {
       return false;
     } finally {
       if (showProgress) setBusy(false);
+    }
+  }, []);
+
+  const loadCalendarRange = useCallback(async (anchor: Date) => {
+    const requestId = ++rangeRequest.current;
+    const range = calendarGridRange(anchor);
+    const rangeKey = `${range.timeMin}|${range.timeMax}`;
+    setCalendarLoading(true);
+    try {
+      const query = new URLSearchParams({ timeMin: range.timeMin, timeMax: range.timeMax });
+      const result = await api(`events?${query}`);
+      if (requestId === rangeRequest.current) {
+        setCalendarEvents(result.events);
+        setCalendarRangeKey(rangeKey);
+        setCalendarMessage(result.source === 'cache' ? 'Vista guardada · sin conexión' : 'Calendario actualizado');
+      }
+      return true;
+    } catch (reason) {
+      if (requestId === rangeRequest.current) setCalendarMessage(reason instanceof Error ? reason.message : 'No se pudo cargar esta parte del calendario.');
+      return false;
+    } finally {
+      if (requestId === rangeRequest.current) setCalendarLoading(false);
     }
   }, []);
 
@@ -183,13 +211,13 @@ export function useGoogleCalendar() {
     setBusy(true); setError(false);
     try {
       const result = await api('disconnect', {});
-      setConfig(result.config); setEvents([]); setSource('none'); setSyncedAt(''); setMessage(result.message);
+      setConfig(result.config); setEvents([]); setCalendarEvents([]); setCalendarRangeKey(''); setSource('none'); setSyncedAt(''); setMessage(result.message);
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : 'No se pudo desconectar la cuenta.'); setError(true);
     } finally { setBusy(false); }
   }
 
-  return { config, events, source, syncedAt, loading, busy, message, error, pairing, save, connect, disconnect, refresh, startPairing };
+  return { config, events, calendarEvents, calendarLoading, calendarMessage, calendarRangeKey, source, syncedAt, loading, busy, message, error, pairing, save, connect, disconnect, refresh, loadCalendarRange, startPairing };
 }
 
 export type GoogleCalendarController = ReturnType<typeof useGoogleCalendar>;

@@ -162,8 +162,20 @@ describe('Google Calendar bridge', () => {
     assert.equal(events.length, 1);
     assert.equal(events[0].title, 'Diseño & producto');
     assert.equal(events[0].start, 540);
+    assert.equal(events[0].date, '2026-09-07');
+    assert.equal(events[0].startAt, '2026-09-07T14:00:00.000Z');
     assert.equal(events[0].hasMeet, true);
     assert.equal(events[0].meetUrl, 'https://meet.google.com/abc-defg-hij');
+  });
+
+  it('normalizes events throughout a multi-week range', () => {
+    const events = normalizeGoogleEvents([
+      { id: 'first', summary: 'Primera semana', start: { dateTime: '2026-09-01T14:00:00Z' }, end: { dateTime: '2026-09-01T14:30:00Z' } },
+      { id: 'last', summary: 'Última semana', start: { dateTime: '2026-10-08T16:00:00Z' }, end: { dateTime: '2026-10-08T17:00:00Z' } },
+    ], '2026-08-31T05:00:00Z', '2026-10-12T05:00:00Z');
+    assert.deepEqual(events.map(event => event.id), ['first', 'last']);
+    assert.notEqual(events[0].date, events[1].date);
+    assert.equal(events[1].start, 660);
   });
 
   it('loads today from Google and falls back to the matching private cache', async () => {

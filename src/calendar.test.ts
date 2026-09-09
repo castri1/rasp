@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agendaAnchorIndex, formatTime, getDayState, getEvents, timeUntil } from './calendar';
+import { agendaAnchorIndex, calendarDateKey, calendarGridRange, formatTime, getDayState, getDemoCalendarEvents, getEvents, timeUntil } from './calendar';
 
 describe('meeting clock', () => {
   const events = getEvents('standard', 'day');
@@ -33,5 +33,16 @@ describe('meeting clock', () => {
     expect(agendaAnchorIndex(events, 750 * 60)).toBe(2);
     expect(agendaAnchorIndex(events, 990 * 60)).toBe(events.length - 1);
     expect(agendaAnchorIndex([], 642 * 60)).toBe(-1);
+  });
+  it('builds a Monday-first six-week calendar range', () => {
+    const range = calendarGridRange(new Date(2026, 8, 9));
+    expect(calendarDateKey(range.start)).toBe('2026-08-31');
+    expect((range.end.getTime() - range.start.getTime()) / 86_400_000).toBe(42);
+  });
+  it('provides dated demo events across the calendar preview', () => {
+    const events = getDemoCalendarEvents(new Date(2026, 8, 9));
+    expect(events.length).toBeGreaterThan(20);
+    expect(new Set(events.map(event => event.date)).size).toBeGreaterThan(15);
+    expect(events.every(event => event.startAt && event.endAt)).toBe(true);
   });
 });

@@ -3,11 +3,33 @@ export interface CalendarEvent {
   title: string;
   start: number;
   end: number;
+  date?: string;
+  startAt?: string;
+  endAt?: string;
   description: string;
   people: string[];
   location: string;
   hasMeet: boolean;
   meetUrl?: string;
+}
+
+export function calendarDateKey(value: Date): string {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+}
+
+export function startOfCalendarWeek(value: Date): Date {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() - ((date.getDay() + 6) % 7));
+  return date;
+}
+
+export function calendarGridRange(value: Date) {
+  const first = new Date(value.getFullYear(), value.getMonth(), 1);
+  const start = startOfCalendarWeek(first);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 42);
+  return { start, end, timeMin: start.toISOString(), timeMax: end.toISOString() };
 }
 
 export type Dataset = 'standard' | 'long' | 'busy' | 'overlap' | 'no-meet';
@@ -19,7 +41,7 @@ export const scenarios: { id: Scenario; label: string; time: number; caption: st
   { id: 'starting', label: 'Es ahora', time: 660, caption: 'Un toque en la pantalla. Tu reunión, lista en el Mac.' },
   { id: 'ongoing', label: 'En reunión', time: 672, caption: 'El tiempo que queda, sin perder de vista lo que sigue.' },
   { id: 'free', label: 'Día libre', time: 642, caption: 'También hay espacio para no tener nada en la agenda.' },
-  { id: 'done', label: 'Día completo', time: 990, caption: 'Cuando termina el día, la pantalla también baja el ritmo.' },
+  { id: 'done', label: 'Fin de jornada', time: 990, caption: 'Cuando termina el día, la pantalla también baja el ritmo.' },
   { id: 'night', label: 'Noche', time: 1320, caption: 'Sin reuniones cerca, la pantalla se convierte en una pieza de arte viva.' },
   { id: 'offline', label: 'Sin conexión', time: 642, caption: 'Tu agenda guardada sigue aquí, incluso sin internet.' },
   { id: 'mac-off', label: 'Mac ausente', time: 655, caption: 'La pantalla te avisa si tu Mac aún no está disponible.' },
@@ -44,6 +66,49 @@ export function getEvents(dataset: Dataset, scenario: Scenario): CalendarEvent[]
   }
   if (dataset === 'overlap') events.push({ ...standard[2], id: 'overlap', title: 'Conversación con Ana', start: 660, end: 690, people: ['Ana'] });
   return events.sort((a, b) => a.start - b.start || a.id.localeCompare(b.id));
+}
+
+const demoTitles = [
+  ['Buenos días, equipo', 'Revisión de prioridades', 'Diseño de producto'],
+  ['Planeación semanal', 'Conversación con clientes'],
+  ['Seguimiento de producto', 'Bloque de trabajo', 'Revisión de contenidos'],
+  ['Sincronización de equipo', 'Diseño de experiencia'],
+  ['Cierre de pendientes', 'Un café con el equipo'],
+];
+
+/** A stable multi-week dataset keeps the browser preview useful without Google Calendar. */
+export function getDemoCalendarEvents(anchor: Date): CalendarEvent[] {
+  const { start } = calendarGridRange(anchor);
+  const events: CalendarEvent[] = [];
+  for (let offset = 0; offset < 42; offset += 1) {
+    const date = new Date(start);
+    date.setDate(date.getDate() + offset);
+    const weekday = date.getDay();
+    if (weekday === 0 || weekday === 6) continue;
+    const titles = demoTitles[(weekday + offset) % demoTitles.length];
+    const count = 1 + ((offset * 7 + weekday) % 3);
+    for (let index = 0; index < count; index += 1) {
+      const startMinutes = 540 + index * 125 + ((offset * 13) % 35);
+      const length = index % 2 === 0 ? 45 : 30;
+      const startAt = new Date(date);
+      startAt.setHours(Math.floor(startMinutes / 60), startMinutes % 60, 0, 0);
+      const endAt = new Date(startAt.getTime() + length * 60_000);
+      events.push({
+        id: `demo-${calendarDateKey(date)}-${index}`,
+        title: titles[index % titles.length],
+        start: startMinutes,
+        end: startMinutes + length,
+        date: calendarDateKey(date),
+        startAt: startAt.toISOString(),
+        endAt: endAt.toISOString(),
+        description: 'Un espacio reservado para avanzar con calma y claridad.',
+        people: index % 2 ? ['Sofía', 'Mateo'] : ['Valentina', 'Lucas'],
+        location: index === count - 1 && weekday === 5 ? 'Oficina' : 'Google Meet',
+        hasMeet: !(index === count - 1 && weekday === 5),
+      });
+    }
+  }
+  return events;
 }
 
 export function formatTime(seconds: number): string {

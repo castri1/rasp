@@ -2,7 +2,7 @@
 
 Aplicación para una pantalla táctil horizontal de 7 pulgadas, con agenda, Pomodoro, control del hogar y un fondo nocturno animado integrados en un lienzo de 800 × 480. Incluye un entorno externo para probar escenarios de calendario a tamaño original o ampliado.
 
-**Funcional hoy:** temporizador real, preferencias de colores persistentes, cuatro paletas completas, fondo nocturno configurable, conexión de solo lectura con Google Calendar y un acompañante seguro para abrir Google Meet en el Mac. **Datos de ejemplo:** el entorno de demostración fuera de `/app`.
+**Funcional hoy:** agenda diaria, semanal y mensual, temporizador real, preferencias de colores persistentes, cuatro paletas completas, fondo nocturno configurable, conexión de solo lectura con Google Calendar y un acompañante seguro para abrir Google Meet en el Mac. **Datos de ejemplo:** el entorno de demostración fuera de `/app`.
 
 ## Ejecutar
 
@@ -128,6 +128,12 @@ El botón **Noche** permite mostrar el fondo en cualquier momento; tocar la anim
 
 La configuración se guarda en el perfil local de Chromium (`rasp.wallpaper.v1`). Si Google Calendar no está disponible o hay un Pomodoro en curso, el fondo no se inicia automáticamente. El escenario **Noche** del prototipo permite revisarlo sin cambiar el reloj del sistema.
 
+## Agenda completa
+
+En la pantalla principal, **Ver todo** abre el calendario completo. La vista **Día** muestra todos los encuentros de una fecha; **Semana** permite comparar los siete días y abrir cada reunión; **Mes** resume la ocupación con indicadores y abre cualquier día con un toque. Los botones laterales recorren el periodo y **Hoy** vuelve a la fecha actual.
+
+Las vistas amplias consultan seis semanas de Google Calendar y guardan hasta ocho intervalos recientes en la caché privada. La carga diaria de alertas continúa separada, por lo que navegar hacia otra semana o mes no cambia la reunión protagonista de la pantalla principal.
+
 ## Pomodoro
 
 Selecciona enfoque o descanso, elige entre 1 y 120 minutos y pulsa Comenzar. Puedes usar las duraciones sugeridas, escribir un valor o ajustarlo con los botones. Pausar, continuar y reiniciar son acciones reales. La duración se bloquea durante una sesión activa o pausada; reiniciar permite cambiarla.
@@ -141,8 +147,9 @@ Se guarda en localStorage (`rasp.pomodoro.v1`). Si el almacenamiento no está di
 En la aplicación instalada, **Ajustes → Calendario** permite guardar un cliente
 OAuth de escritorio y autorizar una cuenta Google Workspace. Rasp solicita solo
 el alcance `calendar.readonly`, consulta el calendario principal al iniciar y
-cada cinco minutos, extrae los enlaces oficiales de Google Meet y conserva una
-copia privada de la agenda del día para usarla si falla Internet.
+cada cinco minutos, extrae los enlaces oficiales de Google Meet y conserva
+copias privadas de la agenda diaria y de los periodos consultados para usarlas
+si falla Internet.
 
 El entorno de demostración continúa usando reuniones ficticias. La ruta
 `/app` usa la fecha y la hora reales y, una vez autorizada, reemplaza los datos
