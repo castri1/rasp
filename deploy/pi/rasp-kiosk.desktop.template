@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Rasp
+Comment=Abre Rasp en pantalla completa
+Exec=@KIOSK_SCRIPT@
+Terminal=false
+X-GNOME-Autostart-enabled=true

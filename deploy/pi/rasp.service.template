@@ -1,0 +1,19 @@
+[Unit]
+Description=Rasp calendar and focus display
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+WorkingDirectory=@INSTALL_DIR@
+Environment=NODE_ENV=production
+Environment=HOME=@HOME@
+ExecStart=@NODE@ @INSTALL_DIR@/server/index.mjs
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

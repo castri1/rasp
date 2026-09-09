@@ -1,0 +1,24 @@
+.color-editor { display: flex; flex-direction: column; min-height: 0; flex: 1; color: var(--editor-text); }
+.color-category { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 10px; }
+.color-category label { font-size: 12px; font-weight: 550; }
+.color-category select { width: 236px; min-height: 44px; border: 1px solid var(--editor-line); background: var(--editor-bg); color: var(--editor-text); border-radius: 7px; padding: 8px 12px; font-size: 12px; }
+.editor-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; flex: 1; padding: 0 8px 12px 0; scrollbar-width: thin; scrollbar-color: var(--editor-muted) transparent; }
+.editor-description { font-size: 11px; color: var(--editor-muted); margin: 0 0 12px; }
+.color-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; }
+.color-field { min-width: 0; }
+.color-field-label { display: flex; align-items: center; gap: 6px; color: var(--editor-muted); font-size: 10px; line-height: 1.5; min-height: 16px; margin: 0 0 7px; cursor: text; }
+.color-changed { width: 4px; height: 4px; border-radius: 50%; background: var(--editor-accent); flex-shrink: 0; }
+.color-inputs { display: flex; align-items: center; gap: 6px; }
+.color-picker { width: 44px; height: 44px; padding: 5px; border: 1px solid var(--editor-line); border-radius: 7px; background: transparent; flex-shrink: 0; cursor: pointer; }
+.color-picker::-webkit-color-swatch-wrapper { padding: 0; }
+.color-picker::-webkit-color-swatch { border: 0; border-radius: 3px; }
+.color-picker::-moz-color-swatch { border: 0; border-radius: 3px; }
+.hex-input { width: 100%; min-width: 0; height: 44px; background: transparent; color: var(--editor-text); border: 1px solid var(--editor-line); border-radius: 6px; padding: 6px 8px; font-size: 11px; font-variant-numeric: tabular-nums; letter-spacing: .5px; }
+.hex-input[aria-invalid='true'] { border-color: var(--warning); }
+.reset-color { width: 44px; height: 44px; display: grid; place-items: center; background: transparent; color: var(--editor-accent); border-radius: 6px; flex-shrink: 0; }
+.reset-color:hover:not(:disabled) { background: var(--editor-line); }
+.reset-color:disabled { opacity: .25; }
+.color-error { color: var(--editor-text); font-size: 10px; display: block; margin-top: 6px; line-height: 1.5; }
+.contrast-summary { display: flex; gap: 7px; align-items: center; color: var(--editor-muted); padding: 7px 0 0; font-size: 10px; line-height: 1.4; min-height: 28px; }
+.contrast-summary > svg { flex-shrink: 0; color: var(--editor-accent); }
+.contrast-summary.needs-attention { color: var(--editor-text); }

@@ -1,0 +1,88 @@
+/* Fallback layout for the older Chromium versions still common on Raspberry Pi OS. */
+.no-dvh .standalone-app { height: 100vh; }
+.no-dvh .studio { min-height: 100vh; }
+
+.compat-layout .day-content,
+.compat-layout .alert-body,
+.compat-layout .pomodoro-screen,
+.compat-layout .settings-screen,
+.compat-layout .ambience-screen { display: flex; gap: 0; }
+
+.compat-layout .day-main { flex: 1 1 0; width: 0; }
+.compat-layout .agenda { flex: 0 0 239px; width: 239px; margin-left: 25px; }
+.compat-layout .countdown-block { flex: 0 0 285px; width: 285px; }
+.compat-layout .alert-meeting { flex: 1 1 0; width: 0; margin-left: 35px; }
+.compat-layout .focus-clock-panel { flex: 0 0 350px; width: 350px; }
+.compat-layout .focus-options { flex: 1 1 0; width: 0; margin-left: 32px; }
+.compat-layout .settings-sidebar { flex: 0 0 145px; width: 145px; }
+.compat-layout .settings-panel { flex: 1 1 0; width: 0; margin-left: 20px; }
+.compat-layout .ambience-intro { flex: 0 0 258px; width: 258px; }
+.compat-layout .ambience-scenes { flex: 1 1 0; width: 0; margin-left: 28px; }
+
+.compat-layout .alert-actions,
+.compat-layout .detail-actions { display: flex; gap: 0; }
+.compat-layout .alert-actions .primary-button,
+.compat-layout .detail-actions .primary-button { flex: 1.2 1 0; width: 0; }
+.compat-layout .alert-actions .secondary-button,
+.compat-layout .detail-actions .secondary-button { flex: 1 1 0; width: 0; margin-left: 15px; }
+
+.compat-layout .presets-grid,
+.compat-layout .scene-grid,
+.compat-layout .alexa-credentials,
+.compat-layout .color-fields { display: flex; flex-wrap: wrap; gap: 0; }
+.compat-layout .preset-card,
+.compat-layout .scene-card,
+.compat-layout .alexa-credentials > label,
+.compat-layout .color-field { flex: 0 0 calc(50% - 7px); width: calc(50% - 7px); }
+.compat-layout .preset-card:nth-child(even),
+.compat-layout .scene-card:nth-child(even),
+.compat-layout .alexa-credentials > label:nth-child(even),
+.compat-layout .color-field:nth-child(even) { margin-left: 13px; }
+.compat-layout .preset-card,
+.compat-layout .color-field { margin-bottom: 10px; }
+.compat-layout .scene-card { flex-basis: calc(50% - 6px); width: calc(50% - 6px); margin-bottom: 11px; }
+.compat-layout .scene-card:nth-child(even) { margin-left: 11px; }
+.compat-layout .alexa-credentials > label { flex-basis: calc(50% - 6px); width: calc(50% - 6px); }
+.compat-layout .alexa-credentials > label:nth-child(even) { margin-left: 12px; }
+
+.no-grid .studio-icon,
+.no-grid .quiet-symbol,
+.no-grid .focus-reset,
+.no-grid .duration-stepper button,
+.no-grid .focus-mac > div:first-child button,
+.no-grid .mac-connection-state button,
+.no-grid .reset-color,
+.no-grid .feedback-mark,
+.no-grid .device-toast > button,
+.no-grid .icon-button,
+.no-grid .transport-button { display: flex; align-items: center; justify-content: center; }
+.compat-layout .focus-dial-content,
+.compat-layout .detail-backdrop { top: 0; right: 0; bottom: 0; left: 0; }
+
+.no-color-mix .studio,
+.no-color-mix .alert-mode { background: var(--device-bg); }
+.no-color-mix .meeting-nudge,
+.no-color-mix .secondary-button,
+.no-color-mix .overlap-note button,
+.no-color-mix .calendar-credentials input { background: var(--surface); }
+.no-color-mix .secondary-button,
+.no-color-mix .event-details,
+.no-color-mix .prototype-info,
+.no-color-mix .size-switch,
+.no-color-mix .demo-controls { border-color: var(--track); }
+.no-color-mix .device,
+.no-color-mix .device-bezel,
+.no-color-mix .device-toast { box-shadow: none; }
+
+.no-flex-gap .device-nav > * + * { margin-left: 5px; }
+.no-flex-gap .device-date > * + *,
+.no-flex-gap .mac-status > * + * { margin-left: 8px; }
+.no-flex-gap .featured-meta > * + *,
+.no-flex-gap .people > * + *,
+.no-flex-gap .meeting-platform > * + *,
+.no-flex-gap .sync-status > * + * { margin-left: 7px; }
+.no-flex-gap .agenda-event > * + * { margin-left: 11px; }
+.no-flex-gap .title-button > * + * { margin-left: 10px; }
+.no-flex-gap .focus-transport > * + *,
+.no-flex-gap .duration-presets > * + *,
+.no-flex-gap .scene-selection > * + * { margin-left: 5px; }

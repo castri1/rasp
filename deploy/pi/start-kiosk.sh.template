@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -u
+
+URL="http://127.0.0.1:4173/app"
+
+for _ in $(seq 1 60); do
+  if node -e "fetch('$URL').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"; then
+    break
+  fi
+  sleep 1
+done
+
+if command -v xset >/dev/null 2>&1; then
+  xset s off 2>/dev/null || true
+  xset -dpms 2>/dev/null || true
+  xset s noblank 2>/dev/null || true
+fi
+
+exec @BROWSER@ "$URL" \
+  --kiosk \
+  --noerrdialogs \
+  --disable-infobars \
+  --disable-session-crashed-bubble \
+  --no-first-run \
+  --start-maximized \
+  --overscroll-history-navigation=0 \
+  --disable-pinch \
+  --user-data-dir="$HOME/.config/rasp-chromium"
