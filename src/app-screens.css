@@ -3,7 +3,7 @@
 .app-preview-toolbar a { display: flex; align-items: center; gap: 5px; color: var(--highlight); text-decoration: none; min-height: 32px; }
 .device-footer { align-items: center; padding-bottom: 0; height: 48px; }
 .device-nav { display: flex; align-items: center; gap: 5px; }
-.device-nav button { display: flex; align-items: center; justify-content: center; gap: 7px; height: 44px; padding: 0 14px; min-width: 106px; background: transparent; color: var(--text-muted); border-radius: 7px; font-size: 11px; position: relative; font-variant-numeric: tabular-nums; }
+.device-nav button { display: flex; align-items: center; justify-content: center; gap: 6px; height: 44px; padding: 0 10px; min-width: 88px; background: transparent; color: var(--text-muted); border-radius: 7px; font-size: 10px; position: relative; font-variant-numeric: tabular-nums; }
 .device-nav button[aria-current='page'] { background: var(--highlight-10); color: var(--highlight); }
 .device-nav button:hover { background: var(--highlight-05); color: var(--text-primary); }
 .nav-alert-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--amber); }
