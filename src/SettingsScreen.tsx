@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { CSSProperties } from 'react';
-import { ArrowCounterClockwise, ArrowUUpLeft, CalendarBlank, Check, CheckCircle, Desktop, Palette, SlidersHorizontal, ArrowSquareOut, CircleNotch, SpeakerHigh } from '@phosphor-icons/react';
+import { ArrowCounterClockwise, ArrowUUpLeft, CalendarBlank, Check, CheckCircle, Desktop, MoonStars, Palette, SlidersHorizontal, ArrowSquareOut, CircleNotch, SpeakerHigh } from '@phosphor-icons/react';
 import ColorEditor from './ColorEditor';
 import { matchingPreset, THEME_PRESETS } from './presets';
 import { contrastRatio, DEFAULT_COLORS, hexToRgba } from './theme';
@@ -12,10 +12,12 @@ import type { AlexaController } from './useAlexa';
 import type { SceneId } from './alexa';
 import GoogleCalendarSettings from './GoogleCalendarSettings';
 import type { GoogleCalendarController } from './useGoogleCalendar';
+import WallpaperSettings from './WallpaperSettings';
+import type { WallpaperController } from './useWallpaper';
 
-export type SettingsSection = 'presets' | 'colors' | 'calendar' | 'mac' | 'alexa';
-export default function SettingsScreen({ theme, mac, alexa, calendar, initialScene, section, onSection }: {
-  alexa: AlexaController; calendar: GoogleCalendarController; initialScene?: SceneId; theme: ThemeController; mac: MacFocusController; section: SettingsSection; onSection: (section: SettingsSection) => void;
+export type SettingsSection = 'presets' | 'colors' | 'wallpaper' | 'calendar' | 'mac' | 'alexa';
+export default function SettingsScreen({ theme, mac, alexa, calendar, wallpaper, onWallpaperPreview, initialScene, section, onSection }: {
+  alexa: AlexaController; calendar: GoogleCalendarController; wallpaper: WallpaperController; onWallpaperPreview: () => void; initialScene?: SceneId; theme: ThemeController; mac: MacFocusController; section: SettingsSection; onSection: (section: SettingsSection) => void;
 }) {
   const [feedback, setFeedback] = useState('');
   const preset = matchingPreset(theme.colors);
@@ -33,14 +35,14 @@ export default function SettingsScreen({ theme, mac, alexa, calendar, initialSce
       <nav aria-label="Secciones de ajustes">
         <button aria-current={section === 'presets' ? 'page' : undefined} onClick={() => onSection('presets')}><Palette size={18} />Paletas</button>
         <button aria-current={section === 'colors' ? 'page' : undefined} onClick={() => onSection('colors')}><SlidersHorizontal size={18} />Colores</button>
+        <button aria-current={section === 'wallpaper' ? 'page' : undefined} onClick={() => onSection('wallpaper')}><MoonStars size={18} />Noche</button>
         <button aria-current={section === 'calendar' ? 'page' : undefined} onClick={() => onSection('calendar')}><CalendarBlank size={18} />Calendario</button>
         <button aria-current={section === 'mac' ? 'page' : undefined} onClick={() => onSection('mac')}><Desktop size={18} />Mi Mac</button>
         <button aria-current={section === 'alexa' ? 'page' : undefined} onClick={() => onSection('alexa')}><SpeakerHigh size={18} />Alexa</button>
       </nav>
-      <span className="settings-local">Tu configuración.<br />Siempre a mano.</span>
     </aside>
     <section className="settings-panel">
-      {section === 'alexa' ? <AlexaSettings alexa={alexa} initialScene={initialScene} /> : section === 'calendar' ? <GoogleCalendarSettings calendar={calendar} /> : section === 'presets' ? <div className="preset-page"><div className="settings-heading"><div><h2>Encuentra tu tono.</h2><p>Una paleta completa, con un solo toque.</p></div><span className="current-palette">{preset?.name ?? 'Personalizada'}</span></div>
+      {section === 'alexa' ? <AlexaSettings alexa={alexa} initialScene={initialScene} /> : section === 'calendar' ? <GoogleCalendarSettings calendar={calendar} /> : section === 'wallpaper' ? <WallpaperSettings wallpaper={wallpaper} onPreview={onWallpaperPreview} /> : section === 'presets' ? <div className="preset-page"><div className="settings-heading"><div><h2>Encuentra tu tono.</h2><p>Una paleta completa, con un solo toque.</p></div><span className="current-palette">{preset?.name ?? 'Personalizada'}</span></div>
         <div className="presets-grid">{THEME_PRESETS.map(item => <button key={item.id} className="preset-card" aria-label={`Aplicar paleta ${item.name}`} aria-pressed={preset?.id === item.id} onClick={() => { theme.applyColors(item.colors); setFeedback(`Paleta ${item.name} aplicada.`); }}>
           <div className="preset-preview" style={{ background: item.colors['device-bg'], color: item.colors['clock-text'] }}><span className="preset-clock">10<span style={{ color: item.colors['clock-separator'] }}>:</span>42</span><div className="preset-lines"><i style={{ background: item.colors.highlight }} /><i style={{ background: item.colors['text-faint'] }} /></div><span className="preset-accent" style={{ background: item.colors.highlight }} /><span className="preset-alert" style={{ background: item.colors.amber }} /></div>
           <span className="preset-name">{item.name}{preset?.id === item.id && <Check size={15} weight="bold" />}</span><span className="preset-mood">{item.mood}</span>
@@ -51,7 +53,7 @@ export default function SettingsScreen({ theme, mac, alexa, calendar, initialSce
         <label className="focus-preference"><div><strong>Activar al iniciar un Pomodoro</strong><span>No se solicita al comenzar un descanso.</span></div><input type="checkbox" role="switch" aria-label="Activar No molestar al iniciar" checked={mac.enabled} disabled={!mac.status?.focusReady} onChange={event => mac.setEnabled(event.target.checked)} /></label>
         <div className="shortcut-instructions"><h3>Modo reunión</h3><p>Al tocar <strong>Abrir + No molestar</strong>, la Raspberry abre Meet y mantiene las interrupciones silenciadas hasta la hora final de la reunión.</p><h3>Configúralo una vez</h3><ol><li>Abre <strong>Atajos</strong> y crea uno llamado <strong>{FOCUS_SHORTCUT}</strong>.</li><li>Añade <strong>Obtener fechas de la entrada</strong> y selecciona <strong>Entrada del atajo</strong>.</li><li>Añade <strong>Establecer modo de concentración</strong>: activa <strong>No molestar</strong> hasta la fecha recibida.</li><li>Guarda y toca el botón de comprobar de arriba.</li></ol><p>El mismo atajo funciona para reuniones y Pomodoro.</p><a href="https://support.apple.com/guide/shortcuts-mac/run-shortcuts-from-the-command-line-apd455c82f02/mac" target="_blank" rel="noreferrer">Atajos en macOS <ArrowSquareOut size={13} /></a><p className="mac-local-note">El acompañante se inicia automáticamente al entrar a tu sesión del Mac.</p></div>
       </div>}
-      {section !== 'alexa' && section !== 'calendar' && <footer className="settings-actions"><span role="status"><Check size={13} />{!theme.storageAvailable || !mac.storageAvailable ? 'Guardado local no disponible' : feedback || 'Guardado en este navegador'}</span>{section !== 'mac' && <div><button disabled={!theme.canUndo} onClick={() => { theme.undo(); setFeedback('Cambio deshecho.'); }} aria-label="Deshacer cambio de colores"><ArrowUUpLeft size={16} />Deshacer</button><button onClick={() => { theme.restoreAll(); setFeedback('Azul noche restaurado.'); }} aria-label="Restaurar azul noche"><ArrowCounterClockwise size={16} /></button></div>}</footer>}
+      {section !== 'alexa' && section !== 'calendar' && section !== 'wallpaper' && <footer className="settings-actions"><span role="status"><Check size={13} />{!theme.storageAvailable || !mac.storageAvailable ? 'Guardado local no disponible' : feedback || 'Guardado en este navegador'}</span>{section !== 'mac' && <div><button disabled={!theme.canUndo} onClick={() => { theme.undo(); setFeedback('Cambio deshecho.'); }} aria-label="Deshacer cambio de colores"><ArrowUUpLeft size={16} />Deshacer</button><button onClick={() => { theme.restoreAll(); setFeedback('Azul noche restaurado.'); }} aria-label="Restaurar azul noche"><ArrowCounterClockwise size={16} /></button></div>}</footer>}
     </section>
   </main>;
 }

@@ -11,7 +11,7 @@ export interface CalendarEvent {
 }
 
 export type Dataset = 'standard' | 'long' | 'busy' | 'overlap' | 'no-meet';
-export type Scenario = 'day' | 'reminder' | 'starting' | 'ongoing' | 'free' | 'done' | 'offline' | 'mac-off';
+export type Scenario = 'day' | 'reminder' | 'starting' | 'ongoing' | 'free' | 'done' | 'night' | 'offline' | 'mac-off';
 
 export const scenarios: { id: Scenario; label: string; time: number; caption: string }[] = [
   { id: 'day', label: 'Mi día', time: 642, caption: 'Un vistazo a lo que viene. El resto puede esperar.' },
@@ -20,6 +20,7 @@ export const scenarios: { id: Scenario; label: string; time: number; caption: st
   { id: 'ongoing', label: 'En reunión', time: 672, caption: 'El tiempo que queda, sin perder de vista lo que sigue.' },
   { id: 'free', label: 'Día libre', time: 642, caption: 'También hay espacio para no tener nada en la agenda.' },
   { id: 'done', label: 'Día completo', time: 990, caption: 'Cuando termina el día, la pantalla también baja el ritmo.' },
+  { id: 'night', label: 'Noche', time: 1320, caption: 'Sin reuniones cerca, la pantalla se convierte en una pieza de arte viva.' },
   { id: 'offline', label: 'Sin conexión', time: 642, caption: 'Tu agenda guardada sigue aquí, incluso sin internet.' },
   { id: 'mac-off', label: 'Mac ausente', time: 655, caption: 'La pantalla te avisa si tu Mac aún no está disponible.' },
 ];

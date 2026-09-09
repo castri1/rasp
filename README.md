@@ -1,8 +1,8 @@
 # rasp · Tu día, en calma
 
-Aplicación para una pantalla táctil horizontal de 7 pulgadas, con agenda, Pomodoro y ajustes integrados en un lienzo de 800 × 480. Incluye un entorno externo para probar escenarios de calendario a tamaño original o ampliado.
+Aplicación para una pantalla táctil horizontal de 7 pulgadas, con agenda, Pomodoro, control del hogar y un fondo nocturno animado integrados en un lienzo de 800 × 480. Incluye un entorno externo para probar escenarios de calendario a tamaño original o ampliado.
 
-**Funcional hoy:** temporizador real, preferencias de colores persistentes, cuatro paletas completas, conexión de solo lectura con Google Calendar y un acompañante seguro para abrir Google Meet en el Mac. **Datos de ejemplo:** el entorno de demostración fuera de `/app`.
+**Funcional hoy:** temporizador real, preferencias de colores persistentes, cuatro paletas completas, fondo nocturno configurable, conexión de solo lectura con Google Calendar y un acompañante seguro para abrir Google Meet en el Mac. **Datos de ejemplo:** el entorno de demostración fuera de `/app`.
 
 ## Ejecutar
 
@@ -108,16 +108,25 @@ npm test
 
 ## Ajustes y paletas
 
-La navegación inferior **Agenda · Pomodoro · Ambiente · Ajustes** pertenece a la aplicación. En Ajustes encontrarás:
+La navegación inferior **Agenda · Pomodoro · Casa · Escenas · Noche · Ajustes** pertenece a la aplicación. En Ajustes encontrarás:
 
 - **Paletas:** Azul noche, Bosque, Arcilla y Grafito. Cada preset cambia la combinación completa, incluidas superficies, reloj, botones, alertas, participantes y marco exterior.
 - **Colores:** 37 campos en seis categorías, con selector, código HEX y restauración individual.
+- **Noche:** horario, anticipación de reuniones, atmósfera, movimiento, densidad, brillo y calidad del fondo animado.
 - **Calendario:** conexión de solo lectura con Google Workspace y estado de sincronización.
 - **Mi Mac:** estado del atajo, instrucciones y activación opcional de No molestar.
 
 Los cambios de color se aplican inmediatamente y se guardan en localStorage (`rasp.colors.v1`). Deshacer conserva hasta 50 cambios de la sesión; el botón de restauración recupera Azul noche. El reinicio de los escenarios de demostración no borra preferencias ni detiene el Pomodoro. La vista previa y la aplicación comparten preferencias en pestañas del mismo origen. No se sincronizan entre computadores, navegadores ni direcciones de servidor distintas.
 
 El editor revisa el contraste del reloj, texto principal y botones. Su superficie usa la paleta elegida mientras resulte legible; si se pierde el contraste, conserva una superficie de recuperación legible para poder restaurar colores.
+
+## Fondo nocturno
+
+Entre las 21:00 y las 06:30, Rasp cambia automáticamente la agenda por una composición generativa de partículas, corrientes líquidas y filamentos tenues. La agenda vuelve 30 minutos antes de una reunión y permanece visible durante la reunión. Estos tres valores pueden modificarse en **Ajustes → Noche**.
+
+El botón **Noche** permite mostrar el fondo en cualquier momento; tocar la animación vuelve a la agenda y suspende el inicio automático durante 30 minutos. Hay tres atmósferas y tres niveles de rendimiento. **Equilibrado** es el valor recomendado para Raspberry Pi 3 B: limita el render a unos 30 cuadros por segundo, adapta la cantidad de partículas según el tiempo de dibujo, pausa el trabajo cuando la página no está visible y evita acumular recursos entre vistas.
+
+La configuración se guarda en el perfil local de Chromium (`rasp.wallpaper.v1`). Si Google Calendar no está disponible o hay un Pomodoro en curso, el fondo no se inicia automáticamente. El escenario **Noche** del prototipo permite revisarlo sin cambiar el reloj del sistema.
 
 ## Pomodoro
 
@@ -186,6 +195,7 @@ Referencia de Apple: [Ejecutar atajos desde la línea de comandos](https://suppo
 - `src/App.tsx`: aplicación, agenda, navegación y entorno de demostración.
 - `src/SettingsScreen.tsx`, `src/ColorEditor.tsx`: ajustes integrados.
 - `src/theme.ts`, `src/presets.ts`, `src/useTheme.ts`: colores, presets, validación, persistencia y deshacer.
+- `src/wallpaper.ts`, `src/useWallpaper.ts`, `src/NightWallpaper.tsx`: horario nocturno, configuración persistente y render generativo adaptativo.
 - `src/pomodoro.ts`, `src/usePomodoro.ts`, `src/PomodoroScreen.tsx`: estado del temporizador, persistencia y pantalla.
 - `src/macFocus.ts`: cliente del acompañante de macOS.
 - `server/macBridge.mjs`, `server/macCompanion.mjs`: puente autenticado, apertura validada de Meet y ejecución del atajo con una hora de vencimiento acotada.
