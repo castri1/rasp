@@ -277,9 +277,10 @@ export default function App() {
 
   function onAlexaSettings(scene?: SceneId) { setInitialScene(scene); setSettingsSection('alexa'); setView('settings'); }
   function onSessionStart(mode: 'focus' | 'break') {
-    if (!alexa.config.automatic[mode]) return;
+    const sceneId = alexa.config.automatic[`${mode}SceneId`];
+    if (!sceneId) return;
     if (alexa.busy) { setNotice('La sesión comenzó. Alexa está ocupada; puedes activar la escena desde Ambiente.'); return; }
-    void alexa.run(mode, 'automatic').then(message => { if (message) setNotice(message); });
+    void alexa.run(sceneId, mode).then(message => { if (message) setNotice(message); });
   }
   const device = <Device alexa={alexa} home={home} calendar={calendar} calendarMode={calendarMode} initialScene={initialScene} onAlexaSettings={onAlexaSettings} onCalendarSettings={() => { setSettingsSection('calendar'); setView('settings'); }} onSessionStart={onSessionStart} view={view} onView={next => { setView(next); setSelected(null); }} theme={theme} pomodoro={pomodoro} mac={mac} settingsSection={settingsSection} onSection={setSettingsSection} events={events} seconds={visibleSeconds} scenario={scenario} selected={selected} setSelected={setSelected} acknowledged={acknowledged} muted={muted} onMute={muteEvent} onOpen={openMeeting} openStatus={openStatus} notice={notice} onNotice={setNotice} />;
   if (standalone) {

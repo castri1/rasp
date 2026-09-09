@@ -1,10 +1,10 @@
-# Ambiente · conectar Rasp con tu Alexa
+# Escenas · conectar Rasp con tu Alexa
 
-El módulo está en **Ambiente** y su configuración en **Ajustes → Alexa**. Los bombillos, grupos y rutinas se gestionan en Alexa. Rasp envía la frase de cada rutina a un dispositivo Alexa por medio de Home Assistant.
+El módulo está en **Escenas** y su configuración en **Ajustes → Alexa**. Los bombillos, grupos y rutinas se gestionan en Alexa. Rasp ejecuta la rutina elegida por medio de Home Assistant; también admite comandos de texto.
 
 ## Estado de esta instalación
 
-El módulo y el conector están implementados. Home Assistant todavía no está instalado y no se ha vinculado ninguna cuenta de Amazon ni accionado una luz real. Las pruebas del conector emplean respuestas simuladas, sin comunicarse con Amazon.
+El módulo, Home Assistant Container y Alexa Devices están instalados en la Raspberry. Las credenciales privadas permanecen en el equipo y fuera del repositorio.
 
 ## 1. Instalar Home Assistant sin reemplazar Rasp
 
@@ -34,8 +34,6 @@ las tareas de administración siguen requiriendo `sudo`.
 - [Home Assistant Container en Raspberry Pi](https://www.home-assistant.io/installation/raspberrypi-other/)
 - [Instalación en macOS mediante una máquina virtual](https://www.home-assistant.io/installation/macos/)
 
-No se ha iniciado ninguna instalación ni modificado la Raspberry.
-
 ## 2. Vincular Alexa en Home Assistant
 
 1. Entra a Home Assistant y completa su configuración inicial.
@@ -58,31 +56,22 @@ La contraseña de Amazon se introduce en Home Assistant, no en Rasp. El token de
 
 Para sustituir el token, introduce el nuevo y guarda. Si cambias la dirección a otro servidor, Rasp exige su token para evitar enviar la credencial anterior al nuevo destino. HTTP solo se admite para direcciones locales; para otros destinos, utiliza HTTPS. Las redirecciones no se siguen.
 
-## 4. Asignar tus rutinas
+## 4. Crear y editar escenas
 
 En la app de Alexa, crea o usa rutinas con una frase de activación que puedas pronunciar, y asigna ahí las acciones sobre tus bombillos. Prueba la frase por voz en el Echo elegido.
 
-En **Ajustes → Alexa → Escenas**, escribe esa misma frase, sin anteponer «Alexa», para las escenas que quieras usar:
+En **Ajustes → Alexa → Escenas** puedes crear hasta 12 escenas desde la pantalla táctil. Cada una permite editar nombre, descripción, icono y la rutina o comando. **Nueva** añade una escena y **Eliminar** la retira cuando guardas los cambios.
 
-| Escena en Rasp | Ejemplo de frase que puedes configurar en Alexa |
-| --- | --- |
-| Enfoque | activa enfoque rasp |
-| Descanso | activa descanso rasp |
-| Reunión | activa reunión rasp |
-| Fin del día | activa fin del día rasp |
-
-Estas frases son ejemplos; Rasp no crea las rutinas ni asigna dispositivos en Alexa. Puedes guardar las frases en Rasp antes de conectar Home Assistant. Se aplican solo al pulsar **Guardar**. Después de conectar, **Probar rutina** envía una orden real; **Guardar y comprobar** solo verifica la conexión.
-
-La ejecución usa la acción oficial de Home Assistant `alexa_devices.send_text_command`, que Alexa procesa como una petición hablada. También puedes usar una orden de iluminación existente, por ejemplo «apaga la luz del estudio». Alexa puede responder por el altavoz, igual que ante una orden de voz.
+Rasp propone las rutinas descubiertas en Home Assistant. Cuando el texto coincide con una de ellas, pulsa directamente su entidad `button`; esto evita depender de la interpretación de una frase. Si escribes otra orden, usa `alexa_devices.send_text_command`, que Alexa procesa como una petición hablada.
 
 [Acción Send text command](https://www.home-assistant.io/actions/alexa_devices.send_text_command/).
 
 ## 5. Ejecutar y automatizar
 
-- Toca una escena en **Ambiente** para enviarla. Una escena sin asignar lleva a su configuración.
-- En Enfoque y Descanso puedes activar la ejecución al comenzar una sesión nueva. Viene desactivada.
+- Toca una escena en **Escenas** para enviarla. Una escena sin asignar lleva a su configuración.
+- Cualquier escena puede asociarse al inicio de un Pomodoro o de un descanso. Viene desactivado.
 - Pausar, continuar, reiniciar, recargar o terminar un temporizador no ejecuta otra escena automáticamente. Al terminar un Pomodoro, el descanso se prepara y comienza con una acción explícita.
-- La escena Reunión se ejecuta manualmente. Los escenarios de calendario de demostración no accionan luces. Su disparo automático queda pendiente de la conexión con el calendario real.
+- Los escenarios de calendario no accionan luces automáticamente.
 - Rasp informa que la orden fue enviada. No consulta ni afirma el estado físico de las luces, ni restaura automáticamente su brillo o color anterior.
 
 Si hay un error de conexión, el Pomodoro continúa y se muestra el error. No se reintenta una orden automáticamente, para evitar ejecutar dos veces una rutina tras una respuesta incierta.
@@ -90,7 +79,7 @@ Si hay un error de conexión, el Pomodoro continúa y se muestra el error. No se
 ## Implementación
 
 - `src/AmbienceScreen.tsx`: pantalla de escenas.
-- `src/AlexaSettings.tsx`: guía, conexión, dispositivo, frases y opciones automáticas.
+- `src/AlexaSettings.tsx`: guía, conexión, dispositivo y editor de escenas dinámicas.
 - `src/alexa.ts` y `src/useAlexa.ts`: modelo y cliente.
 - `server/alexaBridge.mjs`: configuración privada, comprobación de Home Assistant, descubrimiento de dispositivos de Alexa y ejecución de frases guardadas.
 - `server/alexaBridge.test.mjs`: pruebas del conector con servicios simulados.

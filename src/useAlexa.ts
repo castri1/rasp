@@ -43,9 +43,9 @@ export function useAlexa() {
     } catch (err) { setMessage(err instanceof Error ? err.message : 'No se pudo guardar.'); setError(true); return false; }
     finally { setBusy(false); }
   }
-  async function run(scene: SceneId, source: 'manual' | 'automatic' = 'manual') {
+  async function run(scene: SceneId, source: 'manual' | 'focus' | 'break' = 'manual') {
     if (busy) return;
-    if (source === 'automatic' && (scene !== 'focus' && scene !== 'break' || !config.automatic[scene as 'focus' | 'break'])) return;
+    if (source !== 'manual' && config.automatic[`${source}SceneId`] !== scene) return;
     setBusy(true); setPendingScene(scene); setError(false); setMessage('Enviando la orden a Alexa…');
     try {
       const result = await api('run', { scene, source, requestId: createRequestId() });

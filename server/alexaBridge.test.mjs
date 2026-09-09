@@ -4,10 +4,10 @@ import { createServer } from 'node:http';
 import { mkdtemp, rm, stat, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createAlexaMiddleware, createConfigStore, EMPTY_CONFIG, normalizeUrl, publicConfig, validateConfig, DEVICES_TEMPLATE, ROUTINES_TEMPLATE } from './alexaBridge.mjs';
+import { createAlexaMiddleware, createConfigStore, EMPTY_CONFIG, migrateConfig, normalizeUrl, publicConfig, validateConfig, DEVICES_TEMPLATE, ROUTINES_TEMPLATE } from './alexaBridge.mjs';
 const deviceId = 'a'.repeat(32);
 const token = 'test-token-with-no-real-permissions';
-const configured = { ...structuredClone(EMPTY_CONFIG), url: 'http://homeassistant.local:8123', token, deviceId, commands: { focus: 'activa enfoque rasp', break: 'activa descanso rasp', meeting: '', evening: '' } };
+const configured = { ...structuredClone(EMPTY_CONFIG), url: 'http://homeassistant.local:8123', token, deviceId, scenes: EMPTY_CONFIG.scenes.map(scene => ({ ...scene, command: scene.id === 'focus' ? 'activa enfoque rasp' : scene.id === 'break' ? 'activa descanso rasp' : '' })) };
 function memoryStore(config = EMPTY_CONFIG) {
   let saved = structuredClone(config);
   return { load: async () => structuredClone(saved), save: async value => { saved = structuredClone(value); } };
@@ -52,11 +52,11 @@ describe('Alexa through Home Assistant', () => {
   });
   it('can save routine phrases before Home Assistant is installed, without claiming a connection', async () => {
     await serve({ store: memoryStore(), request: async () => { throw new Error('Must not contact a device'); } }, async request => {
-      const saved = await request('config', { ...EMPTY_CONFIG, commands: { ...EMPTY_CONFIG.commands, focus: 'activa mi enfoque' } });
+      const saved = await request('config', { ...EMPTY_CONFIG, scenes: EMPTY_CONFIG.scenes.map(scene => ({ ...scene, command: scene.id === 'focus' ? 'activa mi enfoque' : '' })) });
       assert.equal(saved.status, 200);
       assert.equal(saved.data.config.configured, false);
       const loaded = await request('config');
-      assert.equal(loaded.data.config.commands.focus, 'activa mi enfoque');
+      assert.equal(loaded.data.config.scenes.find(scene => scene.id === 'focus').command, 'activa mi enfoque');
       const checked = await request('check', {});
       assert.equal(checked.data.connection.state, 'not_configured');
     });
@@ -79,7 +79,7 @@ describe('Alexa through Home Assistant', () => {
   });
   it('presses a matching Alexa routine directly instead of sending its name as text', async () => {
     const calls = [];
-    const routineConfig = { ...configured, commands: { ...configured.commands, focus: '  RELÁX  ' } };
+    const routineConfig = { ...configured, scenes: configured.scenes.map(scene => scene.id === 'focus' ? { ...scene, command: '  RELÁX  ' } : scene) };
     await serve({ store: memoryStore(routineConfig), request: upstream(calls) }, async request => {
       const result = await request('run', { scene: 'focus', source: 'manual', requestId: 'request-1234567894' });
       assert.equal(result.status, 200);
@@ -95,7 +95,7 @@ describe('Alexa through Home Assistant', () => {
     await serve({ store: memoryStore(configured), request: upstream(calls) }, async request => {
       assert.equal((await request('check', {}, { Origin: 'https://unrelated.example' })).status, 403);
       assert.equal((await request('run', { scene: 'focus', source: 'automatic', requestId: 'request-1234567891' })).status, 409);
-      assert.equal((await request('run', { scene: 'arbitrary', source: 'manual', requestId: 'request-1234567892' })).status, 400);
+      assert.equal((await request('run', { scene: 'arbitrary', source: 'manual', requestId: 'request-1234567892' })).status, 409);
       assert.equal(calls.length, 0);
     });
   });
@@ -131,7 +131,19 @@ describe('Alexa through Home Assistant', () => {
       await store.save(configured);
       assert.equal((await stat(file)).mode & 0o777, 0o600);
       assert.equal((await createConfigStore(file).load()).token, token);
-      assert.equal(JSON.parse(await readFile(file, 'utf8')).version, 1);
+      assert.equal(JSON.parse(await readFile(file, 'utf8')).version, 2);
     } finally { await rm(directory, { recursive: true, force: true }); }
+  });
+  it('migrates the four original scenes without losing phrases or Pomodoro choices', () => {
+    const migrated = validateConfig(migrateConfig({ version: 1, url: configured.url, token, deviceId, commands: { focus: 'apaga la zona social', break: '', meeting: 'reunión', evening: '' }, automatic: { focus: true, break: false } }));
+    assert.equal(migrated.version, 2);
+    assert.equal(migrated.scenes.find(scene => scene.id === 'focus').command, 'apaga la zona social');
+    assert.equal(migrated.automatic.focusSceneId, 'focus');
+    assert.equal(migrated.automatic.breakSceneId, '');
+  });
+  it('accepts custom scenes and rejects duplicate identifiers', () => {
+    const custom = { ...configured, scenes: [...configured.scenes, { id: 'movie-night', name: 'Cine', description: 'Luz suave', icon: 'lamp', command: 'activa cine' }] };
+    assert.equal(validateConfig(custom).scenes.at(-1).name, 'Cine');
+    assert.throws(() => validateConfig({ ...custom, scenes: [...custom.scenes, { ...custom.scenes[0] }] }));
   });
 });
