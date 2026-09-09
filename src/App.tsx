@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import {
   ArrowCounterClockwise, ArrowLeft, ArrowRight, ArrowUpRight, BellSimple,
@@ -6,7 +6,7 @@ import {
   Desktop, CornersOut, Info, Leaf, MapPin, GearSix, Lamp, Timer, Pause, Play, Plus,
   SlidersHorizontal, VideoCamera, WifiHigh, WifiSlash, X,
 } from '@phosphor-icons/react';
-import { duration, formatTime, getDayState, getEvents, scenarios, timeUntil } from './calendar';
+import { agendaAnchorIndex, duration, formatTime, getDayState, getEvents, scenarios, timeUntil } from './calendar';
 import type { CalendarEvent, Dataset, Scenario } from './calendar';
 import SettingsScreen from './SettingsScreen';
 import type { SettingsSection } from './SettingsScreen';
@@ -89,17 +89,30 @@ function EventDetails({ event, seconds, available, status, muted, onClose, onOpe
 }
 
 function Agenda({ events, seconds, featured, onSelect, emptyMessage = <>Sin compromisos.<br />Con posibilidades.</> }: { events: CalendarEvent[]; seconds: number; featured?: CalendarEvent; onSelect: (event: CalendarEvent) => void; emptyMessage?: React.ReactNode }) {
+  const listRef = useRef<HTMLDivElement>(null);
+  const anchorIndex = agendaAnchorIndex(events, seconds);
+  const anchorId = events[anchorIndex]?.id;
+
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    const target = list?.querySelector<HTMLElement>('[data-agenda-anchor]');
+    if (!list || !target) return;
+    const listBox = list.getBoundingClientRect();
+    const targetBox = target.getBoundingClientRect();
+    list.scrollTop += targetBox.top - listBox.top;
+  }, [anchorId]);
+
   return <aside className="agenda" aria-label="Agenda de hoy">
     <div className="agenda-heading"><h2>Tu agenda</h2><span>{String(events.length).padStart(2, '0')}</span></div>
-    {events.length === 0 ? <div className="empty-agenda"><CalendarBlank size={32} weight="thin" /><p>{emptyMessage}</p></div> : <div className="agenda-list">{events.map(event => {
+    {events.length === 0 ? <div className="empty-agenda"><CalendarBlank size={32} weight="thin" /><p>{emptyMessage}</p></div> : <div className="agenda-list" ref={listRef}>{events.map((event, index) => {
       const past = event.end * 60 <= seconds;
       const current = event.start * 60 <= seconds && !past;
       const active = event.id === featured?.id;
-      return <button key={event.id} className={`agenda-event ${past ? 'past' : ''} ${active ? 'active' : ''}`} onClick={() => onSelect(event)} aria-label={`Ver ${event.title}, ${formatTime(event.start * 60)}`}>
+      return <button key={event.id} data-agenda-anchor={index === anchorIndex ? '' : undefined} className={`agenda-event ${past ? 'past' : ''} ${active ? 'active' : ''}`} onClick={() => onSelect(event)} aria-label={`Ver ${event.title}, ${formatTime(event.start * 60)}`}>
         <span className="agenda-marker">{past ? <Check size={11} weight="bold" /> : <span />}</span>
         <span className="agenda-event-content"><span className="agenda-time">{formatTime(event.start * 60)} <span>{current ? 'EN CURSO' : duration(event)}</span></span><span className="agenda-title">{event.title}</span><span className="agenda-platform">{event.hasMeet ? <VideoCamera size={12} /> : <MapPin size={12} />}{past ? 'Terminada' : event.location}</span></span>
       </button>;
-    })}</div>}
+    })}<div className="agenda-scroll-tail" aria-hidden="true" /></div>}
     <div className="agenda-bottom"><span className="tiny-rule" />Solo lo importante, a su tiempo.</div>
   </aside>;
 }

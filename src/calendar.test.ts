@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatTime, getDayState, getEvents, timeUntil } from './calendar';
+import { agendaAnchorIndex, formatTime, getDayState, getEvents, timeUntil } from './calendar';
 
 describe('meeting clock', () => {
   const events = getEvents('standard', 'day');
@@ -26,5 +26,12 @@ describe('meeting clock', () => {
     expect(timeUntil(events[1], 659 * 60 + 59)).toBe('00:01');
     expect(timeUntil(events[1], 661 * 60)).toBe('00:00');
     expect(formatTime(642 * 60)).toBe('10:42');
+  });
+  it('opens the agenda on the current or next meeting instead of past events', () => {
+    expect(agendaAnchorIndex(events, 642 * 60)).toBe(1);
+    expect(agendaAnchorIndex(events, 672 * 60)).toBe(1);
+    expect(agendaAnchorIndex(events, 750 * 60)).toBe(2);
+    expect(agendaAnchorIndex(events, 990 * 60)).toBe(events.length - 1);
+    expect(agendaAnchorIndex([], 642 * 60)).toBe(-1);
   });
 });

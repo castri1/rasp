@@ -56,6 +56,14 @@ export function timeUntil(event: CalendarEvent, seconds: number): string {
   return `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(Math.floor(remaining % 60)).padStart(2, '0')}`;
 }
 
+/** The agenda opens on what matters now, while leaving earlier meetings reachable above it. */
+export function agendaAnchorIndex(events: CalendarEvent[], seconds: number): number {
+  if (events.length === 0) return -1;
+  const now = seconds / 60;
+  const activeOrNext = events.findIndex(event => event.end > now);
+  return activeOrNext === -1 ? events.length - 1 : activeOrNext;
+}
+
 export function getDayState(events: CalendarEvent[], seconds: number, acknowledged: ReadonlySet<string>) {
   const now = seconds / 60;
   const upcoming = events.filter(event => event.end > now);
