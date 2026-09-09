@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
+import { access, mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SHORTCUT_NAME, validFocusRequest, validMeetRequest } from './macBridge.mjs';
@@ -22,20 +22,23 @@ async function readBody(req) {
   return JSON.parse(body);
 }
 
-async function focusStatus(run) {
+async function focusStatus(run, readyFile) {
+  if (readyFile) {
+    try { await access(readyFile); } catch { return false; }
+  }
   try {
     const { stdout } = await run('/usr/bin/shortcuts', ['list'], { timeout: 8000, maxBuffer: 256 * 1024 });
     return stdout.split(/\r?\n/).some(name => name.trim() === SHORTCUT_NAME);
   } catch { return false; }
 }
 
-export function createCompanionHandler({ token, run = execute }) {
+export function createCompanionHandler({ token, run = execute, readyFile = '' }) {
   const requests = new Map();
   return async (req, res) => {
     if (req.headers.authorization !== `Bearer ${token}`) return json(res, 401, { message: 'Acceso no autorizado.' });
     const path = req.url?.split('?')[0];
     if (path === '/status' && req.method === 'GET') {
-      const focusReady = await focusStatus(run);
+      const focusReady = await focusStatus(run, readyFile);
       return json(res, 200, { available: true, ready: true, focusReady, shortcut: SHORTCUT_NAME, message: focusReady ? 'Mac conectado. Google Meet y No molestar están listos.' : `Mac conectado. Google Meet está listo; crea el atajo «${SHORTCUT_NAME}» para No molestar.` });
     }
     if (!['/open-meet', '/focus'].includes(path) || req.method !== 'POST' || !req.headers['content-type']?.startsWith('application/json')) return json(res, 404, { message: 'Acción no disponible.' });
@@ -51,12 +54,22 @@ export function createCompanionHandler({ token, run = execute }) {
       if (path === '/open-meet') {
         try {
           await run('/usr/bin/open', [body.url], { timeout: 8000, maxBuffer: 64000 });
-          return { code: 200, data: { message: 'Google Meet se abrió en tu Mac.' } };
+          if (!body.deadline) return { code: 200, data: { message: 'Google Meet se abrió en tu Mac.', meetOpened: true, focusActivated: false } };
+          if (!(await focusStatus(run, readyFile))) return { code: 200, data: { message: `Google Meet se abrió. Termina de configurar el atajo «${SHORTCUT_NAME}» para activar No molestar.`, meetOpened: true, focusActivated: false } };
+          let directory;
+          try {
+            directory = await mkdtemp(join(tmpdir(), 'rasp-meeting-'));
+            const input = join(directory, 'until.txt');
+            await writeFile(input, new Date(body.deadline).toISOString(), { mode: 0o600 });
+            await run('/usr/bin/shortcuts', ['run', SHORTCUT_NAME, '--input-path', input], { timeout: 10000, maxBuffer: 64000 });
+            return { code: 200, data: { message: `Google Meet abierto. No molestar activo hasta ${new Date(body.deadline).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}.`, meetOpened: true, focusActivated: true } };
+          } catch { return { code: 200, data: { message: 'Google Meet se abrió, pero el Mac no pudo activar No molestar.', meetOpened: true, focusActivated: false } }; }
+          finally { if (directory) await rm(directory, { recursive: true, force: true }); }
         } catch { return { code: 502, data: { message: 'No se pudo abrir Google Meet en el Mac.' } }; }
       }
       let directory;
       try {
-        if (!(await focusStatus(run))) return { code: 409, data: { message: `Crea el atajo «${SHORTCUT_NAME}» en el Mac para activar No molestar.` } };
+        if (!(await focusStatus(run, readyFile))) return { code: 409, data: { message: `Termina de configurar el atajo «${SHORTCUT_NAME}» en el Mac para activar No molestar.` } };
         directory = await mkdtemp(join(tmpdir(), 'rasp-focus-'));
         const input = join(directory, 'until.txt');
         await writeFile(input, new Date(body.deadline).toISOString(), { mode: 0o600 });
@@ -76,7 +89,7 @@ export async function startMacCompanion({ configFile = process.env.RASP_MAC_CONF
   if (!configFile) throw new Error('RASP_MAC_CONFIG es obligatorio.');
   const config = JSON.parse(await readFile(configFile, 'utf8'));
   if (typeof config.token !== 'string' || config.token.length < 32) throw new Error('La configuración del acompañante no es válida.');
-  const server = createServer(createCompanionHandler({ token: config.token }));
+  const server = createServer(createCompanionHandler({ token: config.token, readyFile: process.env.RASP_FOCUS_READY_FILE || '' }));
   server.listen(port, '127.0.0.1', () => console.log(`Rasp Mac Companion disponible en 127.0.0.1:${port}`));
   return server;
 }

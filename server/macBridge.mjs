@@ -36,7 +36,12 @@ export function validMeetUrl(value) {
 }
 
 export function validMeetRequest(body) {
-  return body && validRequestId(body.requestId) && validMeetUrl(body.url);
+  return body && validRequestId(body.requestId) && validMeetUrl(body.url) &&
+    (body.deadline === undefined || validMeetingDeadline(body.deadline));
+}
+
+export function validMeetingDeadline(value, now = Date.now()) {
+  return Number.isSafeInteger(value) && value > now && value <= now + 12 * 60 * 60000;
 }
 
 export function createMacConfigStore(file = defaultConfigFile) {
@@ -101,7 +106,12 @@ async function runLocalFocus(run, body) {
 async function runLocalMeet(run, body) {
   try {
     await run('/usr/bin/open', [body.url], { timeout: 8000, maxBuffer: 64000 });
-    return { code: 200, data: { message: 'Google Meet se abrió en tu Mac.' } };
+    if (body.deadline) {
+      const focus = await runLocalFocus(run, body);
+      if (focus.code === 200) return { code: 200, data: { message: `Google Meet abierto. No molestar activo hasta ${new Date(body.deadline).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}.`, meetOpened: true, focusActivated: true } };
+      return { code: 200, data: { message: `Google Meet se abrió. ${focus.data.message}`, meetOpened: true, focusActivated: false } };
+    }
+    return { code: 200, data: { message: 'Google Meet se abrió en tu Mac.', meetOpened: true, focusActivated: false } };
   } catch {
     return { code: 502, data: { message: 'El Mac recibió la reunión, pero no pudo abrir el navegador.' } };
   }

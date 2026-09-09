@@ -50,8 +50,8 @@ export function useMacFocus() {
     } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo activar No molestar. El Pomodoro sigue en marcha.'); }
     finally { setRequesting(false); }
   }
-  async function openMeet(url: string) {
-    const result = await api('open-meet', { url, requestId: createRequestId() });
+  async function openMeet(url: string, deadline: number) {
+    const result = await api('open-meet', { url, deadline, requestId: createRequestId() });
     return result.message as string;
   }
   return { status, checking, enabled, setEnabled, message, requesting, refresh, activate, openMeet, storageAvailable };

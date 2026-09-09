@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { allowedRequest, validFocusRequest, validMeetRequest, validMeetUrl, createMacMiddleware, SHORTCUT_NAME } from './macBridge.mjs';
+import { allowedRequest, validFocusRequest, validMeetRequest, validMeetingDeadline, validMeetUrl, createMacMiddleware, SHORTCUT_NAME } from './macBridge.mjs';
 
 describe('Mac focus bridge', () => {
   it('rejects remote hosts and cross-origin or cross-site requests', () => {
@@ -17,8 +17,11 @@ describe('Mac focus bridge', () => {
     assert.equal(validFocusRequest({ ...request, requestId: '$(whoami)' }, now), false);
   });
   it('only accepts authenticated action data for meet.google.com', () => {
+    const now = 1800000000000;
     assert.equal(validMeetUrl('https://meet.google.com/abc-defg-hij'), true);
     assert.equal(validMeetRequest({ url: 'https://meet.google.com/abc-defg-hij?authuser=1', requestId: '12345678-1234-1234-1234-123456789012' }), true);
+    assert.equal(validMeetingDeadline(now + 60_000, now), true);
+    assert.equal(validMeetingDeadline(now + 12 * 60 * 60_000 + 1, now), false);
     for (const url of ['http://meet.google.com/abc-defg-hij', 'https://evil.example/abc', 'https://meet.google.com.evil.example/abc', 'file:///etc/passwd']) assert.equal(validMeetUrl(url), false);
   });
   it('passes the exact expiry to the fixed shortcut once, with no real Focus change', async () => {

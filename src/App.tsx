@@ -39,22 +39,22 @@ function People({ names }: { names: string[] }) {
   </div>;
 }
 
-function MeetAction({ event, available, demo, status, onOpen }: { event: CalendarEvent; available: boolean; demo: boolean; status: OpenStatus; onOpen: (event: CalendarEvent) => void }) {
+function MeetAction({ event, available, focusReady, demo, status, onOpen }: { event: CalendarEvent; available: boolean; focusReady: boolean; demo: boolean; status: OpenStatus; onOpen: (event: CalendarEvent) => void }) {
   const opening = status?.id === event.id && status.state === 'opening';
   const opened = status?.id === event.id && status.state === 'opened';
   if (!event.hasMeet) return <div className="location-note"><MapPin size={19} /><span>{event.location}</span></div>;
   return <div className="meet-action">
     <button className={`primary-button ${opened ? 'is-opened' : ''}`} onClick={() => onOpen(event)} disabled={!available || opening}>
       {opened ? <Check size={19} weight="bold" /> : <VideoCamera size={20} />}
-      <span>{!available ? 'Mac no disponible' : opening ? 'Abriendo…' : opened ? demo ? 'Abierto · simulación' : 'Abierto en tu Mac' : 'Abrir en mi Mac'}</span>
+      <span>{!available ? 'Mac no disponible' : opening ? 'Preparando Mac…' : opened ? demo ? 'Abierto · simulación' : 'Abierto en tu Mac' : focusReady ? 'Abrir + No molestar' : 'Abrir en mi Mac'}</span>
       {!opened && !opening && <ArrowUpRight size={18} className="button-arrow" />}
     </button>
     {!available && <span className="unavailable-help">Conecta tu Mac para abrir la reunión.</span>}
   </div>;
 }
 
-function EventDetails({ event, seconds, available, demo, status, muted, onClose, onOpen, onMute }: {
-  event: CalendarEvent; seconds: number; available: boolean; demo: boolean; status: OpenStatus; muted: boolean;
+function EventDetails({ event, seconds, available, focusReady, demo, status, muted, onClose, onOpen, onMute }: {
+  event: CalendarEvent; seconds: number; available: boolean; focusReady: boolean; demo: boolean; status: OpenStatus; muted: boolean;
   onClose: () => void; onOpen: (event: CalendarEvent) => void; onMute: (id: string) => void;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -84,7 +84,7 @@ function EventDetails({ event, seconds, available, demo, status, muted, onClose,
         <div className="detail-platform">{event.hasMeet ? <VideoCamera size={18} /> : <MapPin size={18} />}{event.location}</div>
       </div>
       <div className="detail-actions">
-        {event.end * 60 > seconds ? <MeetAction event={event} available={available} demo={demo} status={status} onOpen={onOpen} /> : <div className="ended-note"><CheckCircle size={21} />Esta reunión ya terminó</div>}
+        {event.end * 60 > seconds ? <MeetAction event={event} available={available} focusReady={focusReady} demo={demo} status={status} onOpen={onOpen} /> : <div className="ended-note"><CheckCircle size={21} />Esta reunión ya terminó</div>}
         {event.end * 60 > seconds && <button className="secondary-button" onClick={() => onMute(event.id)}>{muted ? <Check size={19} /> : <BellSimpleSlash size={19} />}{muted ? 'Aviso silenciado' : 'Silenciar este evento'}</button>}
       </div>
     </div>
@@ -159,7 +159,7 @@ function Device({ alexa, home, calendar, calendarMode, initialScene, onAlexaSett
         <div className="alert-meeting"><span className="meeting-time">{formatTime(featured.start * 60)} <span>–</span> {formatTime(featured.end * 60)} <span className="duration">{duration(featured)}</span></span><button className="title-button" onClick={() => setSelected(featured)}><h1>{featured.title}</h1><ArrowUpRight size={22} /></button><People names={featured.people} /><span className="meeting-platform">{featured.hasMeet ? <VideoCamera size={16} /> : <MapPin size={16} />}{featured.location}</span></div>
       </div>
       {alertEvents.length > 1 && <div className="overlap-note"><Info size={16} /><span>Coinciden {alertEvents.length} reuniones.</span>{alertEvents.slice(1).map(event => <button key={event.id} onClick={() => setSelected(event)}>{event.title}<ArrowUpRight size={13} /></button>)}</div>}
-      <div className="alert-actions"><MeetAction event={featured} available={macAvailable} demo={calendarMode === 'demo'} status={openStatus} onOpen={onOpen} /><button className="secondary-button" onClick={() => onMute(featured.id)}><BellSimpleSlash size={20} />Silenciar este evento</button></div>
+      <div className="alert-actions"><MeetAction event={featured} available={macAvailable} focusReady={Boolean(mac.status?.focusReady)} demo={calendarMode === 'demo'} status={openStatus} onOpen={onOpen} /><button className="secondary-button" onClick={() => onMute(featured.id)}><BellSimpleSlash size={20} />Silenciar este evento</button></div>
     </main> : <main className="day-content" key="day">
       <div className="day-main"><ClockFace seconds={seconds} subtitle={calendarUnavailable ? calendarMode === 'loading' ? 'Preparando tu agenda.' : 'Tu calendario está por conectar.' : subtitle} />
         {calendarUnavailable ? <button className="calendar-disconnected-card" onClick={onCalendarSettings}><span className="eyebrow">GOOGLE WORKSPACE</span><strong>{calendarMode === 'loading' ? 'Consultando tu calendario…' : 'Conecta tu agenda.'}</strong><span>{calendarMode === 'loading' ? 'Un momento.' : 'Autoriza el acceso desde Ajustes.'}</span><ArrowRight size={18} /></button> : featured ? <div className={`featured-meeting ${current ? 'in-progress' : ''}`}>
@@ -167,7 +167,7 @@ function Device({ alexa, home, calendar, calendarMode, initialScene, onAlexaSett
           <button className="title-button" onClick={() => setSelected(featured)}><h1>{featured.title}</h1><ArrowUpRight size={20} /></button>
           <div className="featured-meta"><span>{formatTime(featured.start * 60)} <span>–</span> {formatTime(featured.end * 60)}</span><span className="meta-divider" /><span>{featured.hasMeet ? <VideoCamera size={15} /> : <MapPin size={15} />}{featured.hasMeet ? 'Google Meet' : 'Presencial'}</span></div>
           {current && <div className="meeting-progress" role="progressbar" aria-label="Progreso de la reunión" aria-valuenow={Math.round((seconds / 60 - current.start) / (current.end - current.start) * 100)} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${Math.min(100, (seconds / 60 - current.start) / (current.end - current.start) * 100)}%` }} /></div>}
-          <MeetAction event={featured} available={macAvailable} demo={calendarMode === 'demo'} status={openStatus} onOpen={onOpen} />
+          <MeetAction event={featured} available={macAvailable} focusReady={Boolean(mac.status?.focusReady)} demo={calendarMode === 'demo'} status={openStatus} onOpen={onOpen} />
         </div> : <div className="quiet-card"><div className="quiet-symbol">{isFree ? <Leaf size={40} weight="thin" /> : <CheckCircle size={40} weight="thin" />}</div><div><span className="eyebrow">{isFree ? 'SIN PRISA' : 'TODO EN SU LUGAR'}</span><h1>{isFree ? 'Espacio para ti.' : 'Por hoy, listo.'}</h1><p>{isFree ? 'No hay reuniones en tu agenda.' : `${completed} encuentros. Ahora, una pausa.`}</p></div></div>}
       </div>
       <Agenda events={events} seconds={seconds} featured={featured} onSelect={setSelected} emptyMessage={calendarUnavailable ? <>Calendario<br />por conectar.</> : undefined} />
@@ -175,7 +175,7 @@ function Device({ alexa, home, calendar, calendarMode, initialScene, onAlexaSett
 
     <footer className="device-footer"><div className={`sync-status ${offline ? 'offline' : ''}`}>{offline ? <WifiSlash size={15} /> : <WifiHigh size={15} />}<span>{calendarMode === 'demo' ? offline ? 'Agenda de ejemplo · sin conexión' : 'Agenda de ejemplo' : calendarMode === 'connected' ? offline ? 'Google Calendar · agenda guardada' : 'Google Calendar' : calendarMode === 'loading' ? 'Preparando calendario' : 'Calendario por conectar'}</span></div><nav className="device-nav" aria-label="Navegación principal"><button aria-current={view === 'agenda' ? 'page' : undefined} onClick={() => onView('agenda')}><CalendarBlank size={17} />Agenda{isAlert && <i className="nav-alert-dot" />}</button><button aria-label="Pomodoro" aria-current={view === 'pomodoro' ? 'page' : undefined} onClick={() => onView('pomodoro')}><Timer size={18} />{pomodoro.timer.status === 'running' || pomodoro.timer.status === 'paused' ? formatCountdown(pomodoro.remaining) : 'Pomodoro'}{pomodoro.timer.status === 'complete' && <i className="nav-alert-dot" />}</button><button aria-current={view === 'home' ? 'page' : undefined} onClick={() => onView('home')}><HouseLine size={18} />Casa</button><button aria-current={view === 'ambience' ? 'page' : undefined} onClick={() => onView('ambience')}><Lamp size={18} />Escenas</button><button aria-current={view === 'settings' ? 'page' : undefined} onClick={() => onView('settings')}><GearSix size={18} />Ajustes</button></nav></footer>
     {notice && <div className="device-toast" role="status"><Info size={18} /><span>{notice}</span><button aria-label="Cerrar aviso" onClick={() => onNotice('')}><X size={17} /></button></div>}
-    {selected && <EventDetails event={selected} seconds={seconds} available={macAvailable} demo={calendarMode === 'demo'} status={openStatus} muted={muted.has(selected.id)} onClose={() => setSelected(null)} onOpen={onOpen} onMute={onMute} />}
+    {selected && <EventDetails event={selected} seconds={seconds} available={macAvailable} focusReady={Boolean(mac.status?.focusReady)} demo={calendarMode === 'demo'} status={openStatus} muted={muted.has(selected.id)} onClose={() => setSelected(null)} onOpen={onOpen} onMute={onMute} />}
   </section>;
 }
 
@@ -277,7 +277,9 @@ export default function App() {
       return;
     }
     try {
-      const message = await mac.openMeet(event.meetUrl);
+      const deadline = new Date();
+      deadline.setHours(Math.floor(event.end / 60), event.end % 60, 0, 0);
+      const message = await mac.openMeet(event.meetUrl, deadline.getTime());
       setOpenStatus({ id: event.id, state: 'opened' });
       setAcknowledged(previous => new Set(previous).add(event.id));
       setNotice(message);

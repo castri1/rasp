@@ -35,6 +35,7 @@ cat > "$COMPANION_PLIST" <<EOF
   <key>EnvironmentVariables</key><dict>
     <key>RASP_MAC_CONFIG</key><string>$CONFIG_FILE</string>
     <key>RASP_MAC_PORT</key><string>4175</string>
+    <key>RASP_FOCUS_READY_FILE</key><string>$INSTALL_DIR/focus-ready</string>
   </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
