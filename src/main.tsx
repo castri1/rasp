@@ -4,6 +4,7 @@ import '@fontsource-variable/manrope';
 import './styles.css';
 import App from './App';
 import './compatibility.css';
+import './touch.css';
 import { applyBrowserCompatibility, reportPreviewDiagnostics } from './browserCompat';
 
 applyBrowserCompatibility();

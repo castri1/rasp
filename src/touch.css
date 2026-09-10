@@ -1,0 +1,172 @@
+/* Large, stable scroll rails for the 7-inch touchscreen. Swiping remains the primary gesture. */
+.device {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.device input:not([role='switch']),
+.device textarea {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+.device svg,
+.device img {
+  -webkit-user-drag: none;
+}
+
+.device :is(
+  .agenda-list,
+  .detail-content,
+  .calendar-day-list,
+  .scene-grid,
+  .alexa-settings-scroll,
+  .alexa-setting-actions > span,
+  .editor-scroll,
+  .wallpaper-settings-scroll,
+  .home-device-list,
+  .home-room-editor-list,
+  .device-editor-list,
+  .tasks-list,
+  .tasks-list-picker,
+  .focus-options,
+  .mac-settings-scroll,
+  .calendar-settings-scroll
+) {
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+  scrollbar-color: color-mix(in srgb, var(--highlight) 55%, var(--track)) transparent;
+}
+
+.device :is(
+  .agenda-list,
+  .detail-content,
+  .calendar-day-list,
+  .scene-grid,
+  .alexa-settings-scroll,
+  .alexa-setting-actions > span,
+  .editor-scroll,
+  .wallpaper-settings-scroll,
+  .home-device-list,
+  .home-room-editor-list,
+  .device-editor-list,
+  .tasks-list,
+  .tasks-list-picker,
+  .focus-options,
+  .mac-settings-scroll,
+  .calendar-settings-scroll
+)::-webkit-scrollbar {
+  width: 18px;
+}
+
+.device :is(
+  .agenda-list,
+  .detail-content,
+  .calendar-day-list,
+  .scene-grid,
+  .alexa-settings-scroll,
+  .alexa-setting-actions > span,
+  .editor-scroll,
+  .wallpaper-settings-scroll,
+  .home-device-list,
+  .home-room-editor-list,
+  .device-editor-list,
+  .tasks-list,
+  .tasks-list-picker,
+  .focus-options,
+  .mac-settings-scroll,
+  .calendar-settings-scroll
+)::-webkit-scrollbar-track {
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--track) 18%, transparent);
+}
+
+.device :is(
+  .agenda-list,
+  .detail-content,
+  .calendar-day-list,
+  .scene-grid,
+  .alexa-settings-scroll,
+  .alexa-setting-actions > span,
+  .editor-scroll,
+  .wallpaper-settings-scroll,
+  .home-device-list,
+  .home-room-editor-list,
+  .device-editor-list,
+  .tasks-list,
+  .tasks-list-picker,
+  .focus-options,
+  .mac-settings-scroll,
+  .calendar-settings-scroll
+)::-webkit-scrollbar-thumb {
+  min-height: 54px;
+  border: 4px solid transparent;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--highlight) 55%, var(--track));
+  background-clip: padding-box;
+}
+
+.device :is(
+  .agenda-list,
+  .detail-content,
+  .calendar-day-list,
+  .scene-grid,
+  .alexa-settings-scroll,
+  .alexa-setting-actions > span,
+  .editor-scroll,
+  .wallpaper-settings-scroll,
+  .home-device-list,
+  .home-room-editor-list,
+  .device-editor-list,
+  .tasks-list,
+  .tasks-list-picker,
+  .focus-options,
+  .mac-settings-scroll,
+  .calendar-settings-scroll
+)::-webkit-scrollbar-thumb:active {
+  background: var(--highlight);
+  background-clip: padding-box;
+}
+
+.device :is(
+  .agenda-list,
+  .detail-content,
+  .calendar-day-list,
+  .scene-grid,
+  .alexa-settings-scroll,
+  .alexa-setting-actions > span,
+  .editor-scroll,
+  .wallpaper-settings-scroll,
+  .home-device-list,
+  .home-room-editor-list,
+  .device-editor-list,
+  .tasks-list,
+  .tasks-list-picker,
+  .focus-options,
+  .mac-settings-scroll,
+  .calendar-settings-scroll
+)::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.device .scene-selection {
+  touch-action: pan-x;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+  scrollbar-color: color-mix(in srgb, var(--highlight) 55%, var(--track)) transparent;
+}
+
+.device .scene-selection::-webkit-scrollbar { height: 16px; }
+.device .scene-selection::-webkit-scrollbar-track { border-radius: 8px; background: color-mix(in srgb, var(--track) 18%, transparent); }
+.device .scene-selection::-webkit-scrollbar-thumb { min-width: 54px; border: 4px solid transparent; border-radius: 8px; background: color-mix(in srgb, var(--highlight) 55%, var(--track)); background-clip: padding-box; }
+.device .scene-selection::-webkit-scrollbar-thumb:active { background: var(--highlight); background-clip: padding-box; }
+.device .scene-selection::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
