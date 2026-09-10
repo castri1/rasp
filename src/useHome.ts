@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { EMPTY_HOME } from './home';
-import type { HomeState } from './home';
+import type { HomeDeviceDraft, HomeRoomDraft, HomeState } from './home';
 import { timeoutSignal } from './browserCompat';
 
 async function api(path: string, body?: object) {
@@ -12,6 +12,7 @@ async function api(path: string, body?: object) {
 export function useHome() {
   const [home, setHome] = useState<HomeState>(EMPTY_HOME);
   const [busyRoom, setBusyRoom] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const refresh = useCallback(async () => {
     try { const result = await api('state'); setHome(result); setError(''); return result as HomeState; }
@@ -32,7 +33,25 @@ export function useHome() {
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'No se pudo controlar el ambiente.'); }
     finally { setBusyRoom(null); }
   }
-  return { home, busyRoom, error, refresh, toggle };
+  async function toggleDevice(entityId: string, turnOn: boolean) {
+    if (busyRoom) return;
+    setBusyRoom(entityId); setError('');
+    try {
+      const result = await api('toggle', { entityId, turnOn });
+      setHome(previous => ({ ...previous, message: result.message, rooms: previous.rooms.map(room => ({ ...room, on: room.devices.reduce((count, device) => count + (device.entityId === entityId ? turnOn ? 1 : 0 : device.state === 'on' ? 1 : 0), 0), devices: room.devices.map(device => device.entityId === entityId ? { ...device, state: turnOn ? 'on' : 'off' } : device) })) }));
+      window.setTimeout(() => void refresh(), 900);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'No se pudo controlar el dispositivo.'); }
+    finally { setBusyRoom(null); }
+  }
+  async function saveConfiguration(rooms: HomeRoomDraft[], devices: HomeDeviceDraft[]) {
+    if (saving) return false;
+    setSaving(true); setError('');
+    try {
+      const result = await api('configuration', { rooms, devices });
+      setHome(result); return true;
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'No se pudo guardar la organización de la casa.'); return false; }
+    finally { setSaving(false); }
+  }
+  return { home, busyRoom, saving, error, refresh, toggle, toggleDevice, saveConfiguration };
 }
 export type HomeController = ReturnType<typeof useHome>;
-

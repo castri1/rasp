@@ -225,4 +225,8 @@ El módulo **Escenas** permite crear, editar y borrar hasta doce escenas mediant
 
 La instalación actual ya está vinculada con Home Assistant y **Alexa Devices**. Rasp pulsa directamente una rutina cuando el nombre coincide; para otros textos usa `alexa_devices.send_text_command` sobre el Echo seleccionado.
 
+La pantalla **Casa** usa el plano real del apartamento. Al tocar un ambiente se ven sus dispositivos y se pueden encender por separado o como grupo. Desde **Editar** se pueden renombrar los ambientes dibujados, añadir hasta seis ambientes adicionales, cambiar el nombre visible de cada dispositivo y asociarlo a otro ambiente. Los bombillos e interruptores conectados a Home Assistant aparecen en el editor aunque todavía no tengan un área asignada. Estos nombres se guardan sólo en Rasp y no modifican Alexa ni Home Assistant.
+
+La organización se persiste de forma privada en `.rasp/home.json`. Los ambientes adicionales aparecen en el selector de Casa sin alterar la geometría; los diez espacios principales conservan su lugar en el plano.
+
 Consulta [la guía de conexión](docs/ALEXA.md) para los pasos de instalación, autenticación, rutinas, almacenamiento y límites actuales.
