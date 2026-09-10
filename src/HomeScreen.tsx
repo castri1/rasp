@@ -20,6 +20,7 @@ export default function HomeScreen({ controller }: { controller: HomeController 
         const label = !room.devices.length ? 'Sin dispositivos' : !available ? 'No disponible' : active ? `${room.on} de ${available} encendido${room.on === 1 ? '' : 's'}` : 'Todo apagado';
         return <button key={room.id} className={`house-room room-${room.id} ${active ? 'is-on' : ''}`} disabled={!available || busyRoom !== null} onClick={() => void controller.toggle(room.id, !active)} aria-label={`${room.name}. ${label}`}>
           <span className="room-top"><Lightbulb size={16} weight={active ? 'fill' : 'regular'} /><i>{active ? 'ON' : room.devices.length ? 'OFF' : '—'}</i></span>
+          <span className="room-furniture" aria-hidden="true"><i /><i /></span>
           <strong>{room.name}</strong><small>{busy ? 'Cambiando…' : label}</small>
           {active && <span className="room-glow" aria-hidden="true" />}
         </button>;
@@ -28,4 +29,3 @@ export default function HomeScreen({ controller }: { controller: HomeController 
     <footer className={`home-status ${error ? 'has-error' : ''}`}>{error ? <WarningCircle size={14} /> : <span className={`home-status-dot ${ready ? 'is-live' : ''}`} />}<span>{error || home.message}</span></footer>
   </main>;
 }
-

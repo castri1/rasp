@@ -72,7 +72,7 @@ button:active:not(:disabled) { filter: brightness(.91); }
 .title-button:hover { color: var(--accent); }
 .title-button h1 { font-size: 26px; letter-spacing: -.85px; font-weight: 550; line-height: 1.28; margin: 0; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 .title-button svg { color: var(--text-muted); }
-.featured-meta { display: flex; align-items: center; gap: 9px; color: var(--text-muted); font-size: 11px; margin: 5px 0 17px; }
+.featured-meta { display: flex; align-items: center; gap: 9px; color: var(--text-muted); font-size: 13px; margin: 5px 0 17px; }
 .featured-meta > span { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
 .featured-meta > span > span { color: var(--track); }
 .featured-meta .meta-divider { width: 1px; height: 10px; background: var(--highlight-15); margin: 0 2px; }
@@ -91,8 +91,8 @@ button:active:not(:disabled) { filter: brightness(.91); }
 .agenda { min-width: 0; min-height: 0; border-left: 1px solid color-mix(in srgb, var(--border) 3.92%, transparent); padding-left: 23px; display: flex; flex-direction: column; padding-top: 8px; }
 .agenda-heading { display: flex; align-items: center; justify-content: space-between; height: 44px; flex-shrink: 0; }
 .agenda-heading h2 { font-size: 13px; font-weight: 550; margin: 0; color: var(--text-secondary); }
-.agenda-heading > button { min-height: 40px; display: flex; align-items: center; gap: 4px; margin-right: -5px; padding: 0 5px 0 8px; border-radius: 6px; background: transparent; color: var(--highlight); font-size: 9px; }
-.agenda-heading > button:hover { background: var(--highlight-05); }
+.agenda-heading > button { min-height: 40px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid var(--highlight-15); border-radius: 7px; background: var(--highlight-10); color: var(--highlight); font-size: 10px; font-weight: 600; }
+.agenda-heading > button:hover { background: var(--highlight-15); border-color: var(--highlight-25); }
 .agenda-list { overflow-y: auto; overflow-x: hidden; flex: 1; min-height: 0; scrollbar-width: thin; scrollbar-color: var(--track) transparent; padding-right: 3px; }
 .agenda-list::-webkit-scrollbar { width: 3px; }
 .agenda-list::-webkit-scrollbar-track { background: transparent; }
@@ -104,7 +104,7 @@ button:active:not(:disabled) { filter: brightness(.91); }
 .agenda-marker::after { content: ''; position: absolute; top: 20px; height: 38px; width: 1px; left: 4.5px; background: color-mix(in srgb, var(--border) 3.92%, transparent); }
 .agenda-event:last-child .agenda-marker::after { display: none; }
 .agenda-event-content { min-width: 0; display: flex; flex-direction: column; width: 100%; }
-.agenda-time { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 10px; font-variant-numeric: tabular-nums; line-height: 15px; }
+.agenda-time { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 11px; font-variant-numeric: tabular-nums; line-height: 15px; }
 .agenda-time > span { font-size: 9px; color: var(--text-faint); }
 .agenda-title { display: block; color: var(--text-secondary); font-size: 16px; line-height: 22px; font-weight: 550; margin: 4px 0; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
 .agenda-platform { display: flex; align-items: center; gap: 4px; font-size: 9px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -146,9 +146,9 @@ button:active:not(:disabled) { filter: brightness(.91); }
 .countdown.now { font-size: 72px; letter-spacing: -3px; }
 .countdown-caption { font-size: 11px; color: var(--alert-muted); }
 .alert-meeting { border-left: 1px solid color-mix(in srgb, var(--amber) 11%, transparent); padding-left: 29px; min-width: 0; }
-.meeting-time { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--alert-text); font-variant-numeric: tabular-nums; }
+.meeting-time { display: flex; align-items: center; gap: 7px; font-size: 17px; color: var(--alert-text); font-variant-numeric: tabular-nums; font-weight: 520; }
 .meeting-time > span { color: var(--alert-muted); }
-.meeting-time .duration { color: var(--alert-muted); margin-left: auto; font-size: 11px; }
+.meeting-time .duration { color: var(--alert-muted); margin-left: auto; font-size: 12px; font-weight: 450; }
 .alert-meeting .title-button { min-height: 77px; margin: 8px 0 12px; }
 .alert-meeting .title-button h1 { font-size: 30px; line-height: 1.24; -webkit-line-clamp: 2; letter-spacing: -.9px; }
 .alert-meeting .title-button > svg { display: none; }

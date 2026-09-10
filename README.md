@@ -2,7 +2,7 @@
 
 Aplicación para una pantalla táctil horizontal de 7 pulgadas, con agenda, Pomodoro, control del hogar y un fondo nocturno animado integrados en un lienzo de 800 × 480. Incluye un entorno externo para probar escenarios de calendario a tamaño original o ampliado.
 
-**Funcional hoy:** agenda diaria, semanal y mensual, temporizador real, preferencias de colores persistentes, cuatro paletas completas, fondo nocturno configurable, conexión de solo lectura con Google Calendar y un acompañante seguro para abrir Google Meet en el Mac. **Datos de ejemplo:** el entorno de demostración fuera de `/app`.
+**Funcional hoy:** agenda diaria, semanal y mensual, pendientes de las listas elegidas en Recordatorios, temporizador real, preferencias de colores persistentes, cuatro paletas completas, fondo nocturno configurable, conexión de solo lectura con Google Calendar y un acompañante seguro para abrir Google Meet en el Mac. **Datos de ejemplo:** el entorno de demostración fuera de `/app`.
 
 ## Ejecutar
 
@@ -108,7 +108,7 @@ npm test
 
 ## Ajustes y paletas
 
-La navegación inferior **Agenda · Pomodoro · Casa · Escenas · Noche · Ajustes** pertenece a la aplicación. En Ajustes encontrarás:
+La navegación inferior **Agenda · Tareas · Pomodoro · Casa · Escenas · Noche · Ajustes** pertenece a la aplicación. En Ajustes encontrarás:
 
 - **Paletas:** Azul noche, Bosque, Arcilla y Grafito. Cada preset cambia la combinación completa, incluidas superficies, reloj, botones, alertas, participantes y marco exterior.
 - **Colores:** 37 campos en seis categorías, con selector, código HEX y restauración individual.
@@ -130,7 +130,7 @@ La configuración se guarda en el perfil local de Chromium (`rasp.wallpaper.v1`)
 
 ## Agenda completa
 
-En la pantalla principal, **Ver todo** abre el calendario completo. La vista **Día** muestra todos los encuentros de una fecha; **Semana** permite comparar los siete días y abrir cada reunión; **Mes** resume la ocupación con indicadores y abre cualquier día con un toque. Los botones laterales recorren el periodo y **Hoy** vuelve a la fecha actual.
+En la pantalla principal, **Ver agenda** abre el calendario completo. La vista **Día** muestra todos los encuentros de una fecha; **Semana** permite comparar los siete días y abrir cada reunión; **Mes** resume la ocupación con indicadores y abre cualquier día con un toque. Los botones laterales recorren el periodo y **Hoy** vuelve a la fecha actual.
 
 Las vistas amplias consultan seis semanas de Google Calendar y guardan hasta ocho intervalos recientes en la caché privada. La carga diaria de alertas continúa separada, por lo que navegar hacia otra semana o mes no cambia la reunión protagonista de la pantalla principal.
 
@@ -187,11 +187,17 @@ Para activar No molestar con Pomodoro, configura además este atajo una vez en e
 
 Los nombres de las acciones pueden variar con el idioma de macOS. El atajo debe consumir su entrada sin solicitar datos ni mostrar diálogos durante la ejecución.
 
-Cuando la opción está activada, comenzar o continuar una sesión de enfoque envía la hora de finalización. Los descansos no ejecutan el atajo. Pausar o reiniciar **no desactiva** el modo del sistema: vence a la hora prevista por el último inicio. Puedes apagarlo antes desde el Centro de control. Desactivar la opción de Rasp afecta a las próximas solicitudes, no al modo que ya esté activo.
+Cuando la opción está activada, comenzar o continuar una sesión de enfoque envía la hora de finalización. Los descansos no ejecutan el atajo. Rasp usa un segundo atajo, llamado exactamente **Rasp Focus Off**, para apagar No molestar al pausar, reiniciar o terminar el tiempo de enfoque. Este atajo sólo necesita la acción **Establecer modo de concentración → Desactivar No molestar**.
 
 Rasp confirma que el atajo terminó de ejecutarse; no puede comprobar la configuración interna del atajo ni leer el modo de concentración efectivo de macOS. Si el atajo falta, falla o no confirma su ejecución a tiempo, muestra el problema y el temporizador continúa.
 
-Google Meet funciona aunque el atajo aún no exista. El atajo **Rasp Focus** todavía debe crearse manualmente en este Mac.
+Google Meet funciona aunque los atajos aún no existan. Para fijar la cuenta que debe abrir Meet, reinstala el acompañante con `RASP_MEET_ACCOUNT='correo@empresa.com' npm run install:mac`. El correo se guarda sólo en la configuración privada del Mac y se añade como selector `authuser` a los enlaces validados de Meet.
+
+## Tareas de Recordatorios
+
+La pantalla **Tareas** consulta la app Recordatorios de este Mac mediante el acompañante local. Pulsa **Listas**, elige sólo las listas que quieres mostrar y toca el círculo de una tarea para completarla también en el Mac. La selección queda guardada en el perfil local de Chromium y los pendientes se refrescan cada cinco minutos o al volver a la pantalla.
+
+El instalador del acompañante compila un pequeño puente nativo con EventKit. macOS puede pedir acceso a Recordatorios la primera vez; concédelo al proceso de Rasp. Los nombres y contenidos de tus listas no se copian a GitHub ni se guardan en la Raspberry, salvo la selección local de identificadores y los datos que permanecen visibles mientras la aplicación está abierta.
 
 Referencia de Apple: [Ejecutar atajos desde la línea de comandos](https://support.apple.com/guide/shortcuts-mac/run-shortcuts-from-the-command-line-apd455c82f02/mac).
 
@@ -204,8 +210,9 @@ Referencia de Apple: [Ejecutar atajos desde la línea de comandos](https://suppo
 - `src/theme.ts`, `src/presets.ts`, `src/useTheme.ts`: colores, presets, validación, persistencia y deshacer.
 - `src/wallpaper.ts`, `src/useWallpaper.ts`, `src/NightWallpaper.tsx`: horario nocturno, configuración persistente y render generativo adaptativo.
 - `src/pomodoro.ts`, `src/usePomodoro.ts`, `src/PomodoroScreen.tsx`: estado del temporizador, persistencia y pantalla.
+- `src/useReminders.ts`, `src/TasksScreen.tsx`: selección de listas, sincronización y pantalla de pendientes.
 - `src/macFocus.ts`: cliente del acompañante de macOS.
-- `server/macBridge.mjs`, `server/macCompanion.mjs`: puente autenticado, apertura validada de Meet y ejecución del atajo con una hora de vencimiento acotada.
+- `server/macBridge.mjs`, `server/macCompanion.mjs`, `server/reminders.mjs`: puente autenticado, apertura validada de Meet, control de No molestar y acceso limitado a Recordatorios.
 - `server/googleCalendar.mjs`: OAuth local con PKCE, consulta de reuniones, extracción segura de Meet y caché privada de la agenda.
 - `server/index.mjs`: servidor de producción para la aplicación y el servicio local.
 - `src/*.test.ts`, `server/macBridge.test.mjs`: pruebas de alertas, colores, reloj, persistencia y conexión con Atajos. Las pruebas del servicio usan un ejecutor simulado y no cambian el modo del Mac.

@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react';
 import {
   ArrowCounterClockwise, ArrowLeft, ArrowRight, ArrowUpRight, BellSimple,
   BellSimpleSlash, CalendarBlank, Check, CheckCircle, Clock,
-  Desktop, CornersOut, Info, Leaf, MapPin, GearSix, HouseLine, Lamp, MoonStars, Timer, Pause, Play, Plus,
+  Desktop, CornersOut, Info, Leaf, MapPin, GearSix, HouseLine, Lamp, ListChecks, MoonStars, Timer, Pause, Play, Plus,
   SlidersHorizontal, VideoCamera, WifiHigh, WifiSlash, X,
 } from '@phosphor-icons/react';
 import { agendaAnchorIndex, duration, formatTime, getDayState, getEvents, scenarios, timeUntil } from './calendar';
@@ -33,8 +33,11 @@ import { meetingBlocksWallpaper, shouldShowNightWallpaper } from './wallpaper';
 import { useWallpaper } from './useWallpaper';
 import type { WallpaperController } from './useWallpaper';
 import CalendarScreen from './CalendarScreen';
+import TasksScreen from './TasksScreen';
+import { useReminders } from './useReminders';
+import type { RemindersController } from './useReminders';
 
-type AppView = 'agenda' | 'calendar' | 'pomodoro' | 'home' | 'ambience' | 'wallpaper' | 'settings';
+type AppView = 'agenda' | 'calendar' | 'tasks' | 'pomodoro' | 'home' | 'ambience' | 'wallpaper' | 'settings';
 type OpenStatus = { id: string; state: 'opening' | 'opened' } | null;
 
 function People({ names }: { names: string[] }) {
@@ -119,7 +122,7 @@ function Agenda({ events, seconds, featured, onSelect, onExpand, emptyMessage = 
   }, [anchorId]);
 
   return <aside className="agenda" aria-label="Agenda de hoy">
-    <div className="agenda-heading"><h2>Tu agenda</h2><button onClick={onExpand}>Ver todo<ArrowUpRight size={13} /></button></div>
+    <div className="agenda-heading"><h2>Tu agenda</h2><button onClick={onExpand}>Ver agenda<ArrowUpRight size={14} /></button></div>
     {events.length === 0 ? <div className="empty-agenda"><CalendarBlank size={32} weight="thin" /><p>{emptyMessage}</p></div> : <div className="agenda-list" ref={listRef}>{events.map((event, index) => {
       const past = event.end * 60 <= seconds;
       const current = event.start * 60 <= seconds && !past;
@@ -140,12 +143,13 @@ function ClockFace({ seconds, subtitle }: { seconds: number; subtitle: string })
 
 type CalendarMode = 'demo' | 'loading' | 'connected' | 'disconnected';
 
-function Device({ alexa, home, calendar, calendarMode, initialScene, onAlexaSettings, onCalendarSettings, onSessionStart, view, onView, theme, pomodoro, mac, wallpaper, wallpaperVisible, onWallpaperExit, settingsSection, onSection, events, seconds, scenario, selected, setSelected, acknowledged, muted, onMute, onOpen, openStatus, notice, onNotice }: {
+function Device({ alexa, home, calendar, calendarMode, reminders, initialScene, onAlexaSettings, onCalendarSettings, onSessionStart, view, onView, theme, pomodoro, mac, wallpaper, wallpaperVisible, onWallpaperExit, settingsSection, onSection, events, seconds, scenario, selected, setSelected, acknowledged, onAcknowledge, pomodoroNoticeDismissed, onDismissPomodoroNotice, muted, onMute, onOpen, openStatus, notice, onNotice }: {
   alexa: AlexaController; calendar: GoogleCalendarController; calendarMode: CalendarMode; initialScene?: SceneId; onAlexaSettings: (scene?: SceneId) => void; onCalendarSettings: () => void; onSessionStart: (mode: 'focus' | 'break') => void;
   home: HomeController;
+  reminders: RemindersController;
   view: AppView; onView: (view: AppView) => void; theme: ThemeController; pomodoro: PomodoroController; mac: MacFocusController; wallpaper: WallpaperController; wallpaperVisible: boolean; onWallpaperExit: () => void; settingsSection: SettingsSection; onSection: (section: SettingsSection) => void;
   events: CalendarEvent[]; seconds: number; scenario: Scenario; selected: CalendarEvent | null; setSelected: (event: CalendarEvent | null) => void;
-  acknowledged: Set<string>; muted: Set<string>; onMute: (id: string) => void; onOpen: (event: CalendarEvent) => void; openStatus: OpenStatus; notice: string; onNotice: (text: string) => void;
+  acknowledged: Set<string>; onAcknowledge: (id: string) => void; pomodoroNoticeDismissed: boolean; onDismissPomodoroNotice: () => void; muted: Set<string>; onMute: (id: string) => void; onOpen: (event: CalendarEvent) => void; openStatus: OpenStatus; notice: string; onNotice: (text: string) => void;
 }) {
   const state = getDayState(events, seconds, acknowledged);
   const { featured, current, completed, alertEvents } = state;
@@ -166,9 +170,9 @@ function Device({ alexa, home, calendar, calendarMode, initialScene, onAlexaSett
   if (wallpaperVisible) return <section className="device wallpaper-device" aria-label="Fondo nocturno animado" data-testid="device"><NightWallpaper config={wallpaper.config} onExit={onWallpaperExit} /></section>;
 
   return <section className={`device ${isAlert && view === 'agenda' ? 'alert-mode' : ''} ${view === 'settings' ? 'settings-mode' : ''} ${isDone || isFree ? 'quiet-mode' : ''}`} aria-label="Pantalla del reloj de reuniones" data-testid="device">
-    <header className="device-header">{view !== 'agenda' && isAlert && featured ? <button className="meeting-nudge" onClick={() => onView('agenda')}><BellSimple size={18} /><span>{featured.title}</span><strong>{remaining > 0 ? `en ${remaining} min` : 'Ahora'}</strong><ArrowRight size={17} /></button> : view !== 'pomodoro' && pomodoro.timer.status === 'complete' ? <button className="meeting-nudge timer-nudge" onClick={() => onView('pomodoro')}><CheckCircle size={18} /><span>{pomodoro.timer.mode === 'focus' ? 'Tu Pomodoro terminó. Es momento de una pausa.' : 'Descanso terminado. Vuelve a tu ritmo.'}</span><ArrowRight size={17} /></button> : <><span className="device-date"><CalendarBlank size={17} /><span>{normalizedDate}</span></span><button className={`mac-status ${!macAvailable ? 'is-offline' : ''}`} onClick={() => { onSection('mac'); onView('settings'); }}><Desktop size={17} /><span>{mac.status?.ready ? 'Mac conectado' : 'Configurar Mac'}</span><span className="status-dot" /></button></>}</header>
+    <header className="device-header">{view !== 'agenda' && isAlert && featured ? <button className="meeting-nudge" onClick={() => { onAcknowledge(featured.id); onView('agenda'); }}><BellSimple size={18} /><span>{featured.title}</span><strong>{remaining > 0 ? `en ${remaining} min` : 'Ahora'}</strong><ArrowRight size={17} /></button> : view !== 'pomodoro' && pomodoro.timer.status === 'complete' && !pomodoroNoticeDismissed ? <button className="meeting-nudge timer-nudge" onClick={() => { onDismissPomodoroNotice(); onView('pomodoro'); }}><CheckCircle size={18} /><span>{pomodoro.timer.mode === 'focus' ? 'Tu Pomodoro terminó. Es momento de una pausa.' : 'Descanso terminado. Vuelve a tu ritmo.'}</span><ArrowRight size={17} /></button> : <><span className="device-date"><CalendarBlank size={17} /><span>{normalizedDate}</span></span><button className={`mac-status ${!macAvailable ? 'is-offline' : ''}`} onClick={() => { onSection('mac'); onView('settings'); }}><Desktop size={17} /><span>{mac.status?.ready ? 'Mac conectado' : 'Configurar Mac'}</span><span className="status-dot" /></button></>}</header>
 
-    {view === 'settings' ? <SettingsScreen theme={theme} mac={mac} alexa={alexa} calendar={calendar} wallpaper={wallpaper} onWallpaperPreview={() => onView('wallpaper')} initialScene={initialScene} section={settingsSection} onSection={onSection} /> : view === 'calendar' ? <CalendarScreen calendar={calendar} demo={calendarMode === 'demo'} seconds={seconds} onBack={() => onView('agenda')} onSelect={setSelected} /> : view === 'home' ? <HomeScreen controller={home} /> : view === 'ambience' ? <AmbienceScreen alexa={alexa} onSettings={onAlexaSettings} /> : view === 'pomodoro' ? <PomodoroScreen onSessionStart={onSessionStart} pomodoro={pomodoro} mac={mac} onMacSettings={() => { onSection('mac'); onView('settings'); }} /> : isAlert && featured ? <main className={`alert-content ${alertEvents.length > 1 ? 'has-overlap' : ''}`} key="alert">
+    {view === 'settings' ? <SettingsScreen theme={theme} mac={mac} alexa={alexa} calendar={calendar} wallpaper={wallpaper} onWallpaperPreview={() => onView('wallpaper')} initialScene={initialScene} section={settingsSection} onSection={onSection} /> : view === 'calendar' ? <CalendarScreen calendar={calendar} demo={calendarMode === 'demo'} seconds={seconds} onBack={() => onView('agenda')} onSelect={setSelected} /> : view === 'tasks' ? <TasksScreen controller={reminders} demo={calendarMode === 'demo'} /> : view === 'home' ? <HomeScreen controller={home} /> : view === 'ambience' ? <AmbienceScreen alexa={alexa} onSettings={onAlexaSettings} /> : view === 'pomodoro' ? <PomodoroScreen onSessionStart={onSessionStart} pomodoro={pomodoro} mac={mac} onMacSettings={() => { onSection('mac'); onView('settings'); }} /> : isAlert && featured ? <main className={`alert-content ${alertEvents.length > 1 ? 'has-overlap' : ''}`} key="alert">
       <div className="alert-topline"><span className="alert-label"><BellSimple size={18} weight="fill" />{remaining > 0 ? 'TU PRÓXIMA REUNIÓN' : 'ES MOMENTO DE CONECTAR'}</span><span className="alert-clock">{formatTime(seconds)}</span></div>
       <div className="alert-body"><div className="countdown-block"><span className="countdown-prefix">{remaining > 0 ? 'Comienza en' : 'Tu reunión comienza'}</span><div className={`countdown ${remaining === 0 ? 'now' : ''}`}>{remaining > 0 ? timeUntil(featured, seconds) : 'Ahora'}</div><span className="countdown-caption">{remaining > 0 ? 'Toma aire. Ya casi es hora.' : 'Todo listo para estar presente.'}</span></div>
         <div className="alert-meeting"><span className="meeting-time">{formatTime(featured.start * 60)} <span>–</span> {formatTime(featured.end * 60)} <span className="duration">{duration(featured)}</span></span><button className="title-button" onClick={() => setSelected(featured)}><h1>{featured.title}</h1><ArrowUpRight size={22} /></button><People names={featured.people} /><span className="meeting-platform">{featured.hasMeet ? <VideoCamera size={16} /> : <MapPin size={16} />}{featured.location}</span></div>
@@ -188,13 +192,14 @@ function Device({ alexa, home, calendar, calendarMode, initialScene, onAlexaSett
       <Agenda events={events} seconds={seconds} featured={featured} onSelect={setSelected} onExpand={() => onView('calendar')} emptyMessage={calendarUnavailable ? <>Calendario<br />por conectar.</> : undefined} />
     </main>}
 
-    <footer className="device-footer"><div className={`sync-status ${offline ? 'offline' : ''}`}>{offline ? <WifiSlash size={15} /> : <WifiHigh size={15} />}<span>{calendarMode === 'demo' ? offline ? 'Agenda de ejemplo · sin conexión' : 'Agenda de ejemplo' : calendarMode === 'connected' ? offline ? 'Google Calendar · agenda guardada' : 'Google Calendar' : calendarMode === 'loading' ? 'Preparando calendario' : 'Calendario por conectar'}</span></div><nav className="device-nav" aria-label="Navegación principal"><button aria-current={view === 'agenda' || view === 'calendar' ? 'page' : undefined} onClick={() => onView('agenda')}><CalendarBlank size={17} />Agenda{isAlert && <i className="nav-alert-dot" />}</button><button aria-label="Pomodoro" aria-current={view === 'pomodoro' ? 'page' : undefined} onClick={() => onView('pomodoro')}><Timer size={18} />{pomodoro.timer.status === 'running' || pomodoro.timer.status === 'paused' ? formatCountdown(pomodoro.remaining) : 'Pomodoro'}{pomodoro.timer.status === 'complete' && <i className="nav-alert-dot" />}</button><button aria-current={view === 'home' ? 'page' : undefined} onClick={() => onView('home')}><HouseLine size={18} />Casa</button><button aria-current={view === 'ambience' ? 'page' : undefined} onClick={() => onView('ambience')}><Lamp size={18} />Escenas</button><button aria-current={view === 'wallpaper' ? 'page' : undefined} onClick={() => onView('wallpaper')}><MoonStars size={18} />Noche</button><button aria-current={view === 'settings' ? 'page' : undefined} onClick={() => onView('settings')}><GearSix size={18} />Ajustes</button></nav></footer>
+    <footer className="device-footer"><div className={`sync-status ${offline ? 'offline' : ''}`}>{offline ? <WifiSlash size={15} /> : <WifiHigh size={15} />}<span>{calendarMode === 'demo' ? offline ? 'Agenda de ejemplo · sin conexión' : 'Agenda de ejemplo' : calendarMode === 'connected' ? offline ? 'Google Calendar · agenda guardada' : 'Google Calendar' : calendarMode === 'loading' ? 'Preparando calendario' : 'Calendario por conectar'}</span></div><nav className="device-nav" aria-label="Navegación principal"><button aria-current={view === 'agenda' || view === 'calendar' ? 'page' : undefined} onClick={() => onView('agenda')}><CalendarBlank size={17} />Agenda{isAlert && <i className="nav-alert-dot" />}</button><button aria-current={view === 'tasks' ? 'page' : undefined} onClick={() => onView('tasks')}><ListChecks size={18} />Tareas</button><button aria-label="Pomodoro" aria-current={view === 'pomodoro' ? 'page' : undefined} onClick={() => onView('pomodoro')}><Timer size={18} />{pomodoro.timer.status === 'running' || pomodoro.timer.status === 'paused' ? formatCountdown(pomodoro.remaining) : 'Pomodoro'}{pomodoro.timer.status === 'complete' && <i className="nav-alert-dot" />}</button><button aria-current={view === 'home' ? 'page' : undefined} onClick={() => onView('home')}><HouseLine size={18} />Casa</button><button aria-current={view === 'ambience' ? 'page' : undefined} onClick={() => onView('ambience')}><Lamp size={18} />Escenas</button><button aria-current={view === 'wallpaper' ? 'page' : undefined} onClick={() => onView('wallpaper')}><MoonStars size={18} />Noche</button><button aria-current={view === 'settings' ? 'page' : undefined} onClick={() => onView('settings')}><GearSix size={18} />Ajustes</button></nav></footer>
     {notice && <div className="device-toast" role="status"><Info size={18} /><span>{notice}</span><button aria-label="Cerrar aviso" onClick={() => onNotice('')}><X size={17} /></button></div>}
     {selected && <EventDetails event={selected} ended={calendarMode === 'demo' ? selected.date ? selected.date < '2026-09-07' || selected.date === '2026-09-07' && selected.end * 60 <= seconds : selected.end * 60 <= seconds : selected.endAt ? Date.parse(selected.endAt) <= Date.now() : selected.end * 60 <= seconds} available={macAvailable} focusReady={Boolean(mac.status?.focusReady)} demo={calendarMode === 'demo'} status={openStatus} muted={muted.has(selected.id)} onClose={() => setSelected(null)} onOpen={onOpen} onMute={onMute} />}
   </section>;
 }
 
 export default function App() {
+  const standalone = window.location.pathname.replace(/\/$/, '') === '/app';
   const theme = useTheme();
   const pomodoro = usePomodoro();
   const mac = useMacFocus();
@@ -202,10 +207,10 @@ export default function App() {
   const home = useHome();
   const calendar = useGoogleCalendar();
   const wallpaper = useWallpaper();
+  const reminders = useReminders(standalone);
   const [initialScene, setInitialScene] = useState<SceneId | undefined>();
   const [view, setView] = useState<AppView>('agenda');
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('presets');
-  const standalone = window.location.pathname.replace(/\/$/, '') === '/app';
   const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [scenario, setScenario] = useState<Scenario>('day');
   const [dataset, setDataset] = useState<Dataset>('standard');
@@ -220,9 +225,11 @@ export default function App() {
   const [wallpaperSnoozedUntil, setWallpaperSnoozedUntil] = useState(0);
   const [stageWidth, setStageWidth] = useState(860);
   const [showInfo, setShowInfo] = useState(false);
+  const [pomodoroNoticeDismissed, setPomodoroNoticeDismissed] = useState(false);
   const [liveSeconds, setLiveSeconds] = useState(() => { const now = new Date(); return now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds(); });
   const stageRef = useRef<HTMLDivElement>(null);
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const focusCompletionHandled = useRef(false);
   const demoEvents = useMemo(() => getEvents(dataset, scenario), [dataset, scenario]);
   const calendarMode: CalendarMode = standalone ? calendar.loading ? 'loading' : calendar.config.connected ? 'connected' : 'disconnected' : 'demo';
   const events = calendarMode === 'demo' ? demoEvents : calendarMode === 'connected' ? calendar.events : [];
@@ -276,6 +283,17 @@ export default function App() {
     const timer = setTimeout(() => setNotice(''), 5000);
     return () => clearTimeout(timer);
   }, [notice]);
+  useEffect(() => {
+    if (pomodoro.timer.status !== 'complete') {
+      focusCompletionHandled.current = false;
+      setPomodoroNoticeDismissed(false);
+      return;
+    }
+    if (pomodoro.timer.mode === 'focus' && !focusCompletionHandled.current) {
+      focusCompletionHandled.current = true;
+      void mac.deactivate();
+    }
+  }, [pomodoro.timer.mode, pomodoro.timer.status]);
   useEffect(() => {
     if (view !== 'wallpaper' || !wallpaperBlocked) return;
     setView('agenda');
@@ -332,7 +350,7 @@ export default function App() {
     if (alexa.busy) { setNotice('La sesión comenzó. Alexa está ocupada; puedes activar la escena desde Ambiente.'); return; }
     void alexa.run(sceneId, mode).then(message => { if (message) setNotice(message); });
   }
-  const device = <Device alexa={alexa} home={home} calendar={calendar} calendarMode={calendarMode} initialScene={initialScene} onAlexaSettings={onAlexaSettings} onCalendarSettings={() => { setSettingsSection('calendar'); setView('settings'); }} onSessionStart={onSessionStart} view={view} onView={next => { if (next === 'wallpaper') setWallpaperSnoozedUntil(0); setView(next); setSelected(null); }} theme={theme} pomodoro={pomodoro} mac={mac} wallpaper={wallpaper} wallpaperVisible={wallpaperVisible} onWallpaperExit={() => { setView('agenda'); setWallpaperSnoozedUntil(Date.now() + 30 * 60_000); }} settingsSection={settingsSection} onSection={setSettingsSection} events={events} seconds={visibleSeconds} scenario={scenario} selected={selected} setSelected={setSelected} acknowledged={acknowledged} muted={muted} onMute={muteEvent} onOpen={openMeeting} openStatus={openStatus} notice={notice} onNotice={setNotice} />;
+  const device = <Device alexa={alexa} home={home} calendar={calendar} calendarMode={calendarMode} reminders={reminders} initialScene={initialScene} onAlexaSettings={onAlexaSettings} onCalendarSettings={() => { setSettingsSection('calendar'); setView('settings'); }} onSessionStart={onSessionStart} view={view} onView={next => { if (next === 'wallpaper') setWallpaperSnoozedUntil(0); setView(next); setSelected(null); }} theme={theme} pomodoro={pomodoro} mac={mac} wallpaper={wallpaper} wallpaperVisible={wallpaperVisible} onWallpaperExit={() => { setView('agenda'); setWallpaperSnoozedUntil(Date.now() + 30 * 60_000); }} settingsSection={settingsSection} onSection={setSettingsSection} events={events} seconds={visibleSeconds} scenario={scenario} selected={selected} setSelected={setSelected} acknowledged={acknowledged} onAcknowledge={id => setAcknowledged(previous => new Set(previous).add(id))} pomodoroNoticeDismissed={pomodoroNoticeDismissed} onDismissPomodoroNotice={() => setPomodoroNoticeDismissed(true)} muted={muted} onMute={muteEvent} onOpen={openMeeting} openStatus={openStatus} notice={notice} onNotice={setNotice} />;
   if (standalone) {
     const appScale = Math.min(windowSize.width / 800, windowSize.height / 480);
     return <div className="standalone-app"><div style={{ width: 800 * appScale, height: 480 * appScale }}><div className="standalone-screen" style={{ transform: `scale(${appScale})` }}>{device}</div></div></div>;

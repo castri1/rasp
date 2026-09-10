@@ -11,8 +11,8 @@ export default function AmbienceScreen({ alexa, onSettings }: { alexa: AlexaCont
   const deviceName = connection.devices.find(device => device.id === config.deviceId)?.name;
   const lastScene = config.scenes.find(scene => scene.id === alexa.lastSent?.scene);
   return <main className="ambience-screen app-content" aria-label="Ambiente con Alexa">
-    <section className="ambience-intro"><span className="eyebrow">TU CASA, EN SINTONÍA</span><h1>Tu espacio,<br />a tu ritmo<span>.</span></h1><p>Las rutinas de tu Alexa.<br />Ahora, a un toque.</p>
-      <div className="ambience-art" aria-hidden="true"><span className="lamp-light" /><Lamp size={77} weight="thin" /><span className="lamp-floor" /></div>
+    <section className="ambience-intro"><span className="eyebrow">TU CASA, EN SINTONÍA</span><h1>Tu espacio<span>.</span></h1><p>Rutinas de Alexa,<br />a un toque.</p>
+      <div className="ambience-art" aria-hidden="true"><span className="lamp-light" /><Lamp size={46} weight="thin" /><span className="lamp-floor" /></div>
       <button className="ambience-connect" onClick={() => onSettings()}><span className={`alexa-dot ${connected ? 'connected' : ''}`} /><span>{connected ? deviceName || 'Alexa conectada' : 'Conectar Alexa'}</span>{connected ? <SlidersHorizontal size={18} /> : <ArrowRight size={18} />}</button>
     </section>
     <section className="ambience-scenes"><div className="ambience-heading"><h2>Escenas</h2><button onClick={() => onSettings(config.scenes[0]?.id)}><SlidersHorizontal size={15} />Editar</button></div>

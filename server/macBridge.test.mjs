@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { allowedRequest, validFocusRequest, validMeetRequest, validMeetingDeadline, validMeetUrl, createMacMiddleware, SHORTCUT_NAME } from './macBridge.mjs';
+import { allowedRequest, validFocusRequest, validFocusStopRequest, validMeetRequest, validMeetingDeadline, validMeetUrl, createMacMiddleware, SHORTCUT_NAME, STOP_SHORTCUT_NAME } from './macBridge.mjs';
 
 describe('Mac focus bridge', () => {
   it('rejects remote hosts and cross-origin or cross-site requests', () => {
@@ -15,6 +15,30 @@ describe('Mac focus bridge', () => {
     assert.equal(validFocusRequest(request, now), true);
     for (const deadline of [now, now - 1, now + 120 * 60000 + 1, Infinity, 'tomorrow']) assert.equal(validFocusRequest({ ...request, deadline }, now), false);
     assert.equal(validFocusRequest({ ...request, requestId: '$(whoami)' }, now), false);
+    assert.equal(validFocusStopRequest({ requestId: request.requestId }), true);
+    assert.equal(validFocusStopRequest({ requestId: 'short' }), false);
+  });
+  it('runs the fixed off shortcut once for duplicate requests', async () => {
+    if (process.platform !== 'darwin') return;
+    let executions = 0;
+    const middleware = createMacMiddleware(async (file, args) => {
+      assert.equal(file, '/usr/bin/shortcuts');
+      if (args[0] === 'list') return { stdout: `${SHORTCUT_NAME}\n${STOP_SHORTCUT_NAME}\n` };
+      assert.deepEqual(args, ['run', STOP_SHORTCUT_NAME]);
+      executions++;
+      return { stdout: '' };
+    });
+    const server = createServer((req, res) => void middleware(req, res, () => { res.writeHead(404); res.end(); }));
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const url = `http://127.0.0.1:${server.address().port}/api/mac/focus-off`;
+      const body = JSON.stringify({ requestId: 'focus-stop-1234567890123456' });
+      for (let index = 0; index < 2; index++) {
+        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Rasp-Request': 'focus-off' }, body });
+        assert.equal(response.status, 200);
+      }
+      assert.equal(executions, 1);
+    } finally { await new Promise(resolve => server.close(resolve)); }
   });
   it('only accepts authenticated action data for meet.google.com', () => {
     const now = 1800000000000;

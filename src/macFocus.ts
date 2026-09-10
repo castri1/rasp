@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { createRequestId, timeoutSignal } from './browserCompat';
 
-export interface MacStatus { available: boolean; ready: boolean; focusReady: boolean; shortcut: string; message: string }
+export interface MacStatus { available: boolean; ready: boolean; focusReady: boolean; focusStopReady?: boolean; meetAccount?: string; shortcut: string; message: string }
 export const FOCUS_SHORTCUT = 'Rasp Focus';
+export const FOCUS_STOP_SHORTCUT = 'Rasp Focus Off';
 const preferenceKey = 'rasp.macFocus.v1';
 
-async function api(path: 'status' | 'focus' | 'open-meet', body?: object) {
+async function api(path: 'status' | 'focus' | 'focus-off' | 'open-meet', body?: object) {
   const response = await fetch(`/api/mac/${path}`, {
     method: body ? 'POST' : 'GET',
     headers: body ? { 'Content-Type': 'application/json', 'X-Rasp-Request': path } : {},
@@ -37,7 +38,7 @@ export function useMacFocus() {
   async function refresh() {
     setChecking(true);
     try { setStatus(await api('status')); }
-    catch { setStatus({ available: false, ready: false, focusReady: false, shortcut: FOCUS_SHORTCUT, message: 'El acompañante del Mac no está disponible.' }); }
+    catch { setStatus({ available: false, ready: false, focusReady: false, focusStopReady: false, shortcut: FOCUS_SHORTCUT, message: 'El acompañante del Mac no está disponible.' }); }
     finally { setChecking(false); }
   }
   useEffect(() => { void refresh(); }, []);
@@ -50,11 +51,19 @@ export function useMacFocus() {
     } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo activar No molestar. El Pomodoro sigue en marcha.'); }
     finally { setRequesting(false); }
   }
+  async function deactivate() {
+    setRequesting(true); setMessage('Apagando No molestar…');
+    try {
+      const result = await api('focus-off', { requestId: createRequestId() });
+      setMessage(result.message);
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo apagar No molestar en el Mac.'); }
+    finally { setRequesting(false); }
+  }
   async function openMeet(url: string, deadline: number) {
     const result = await api('open-meet', { url, deadline, requestId: createRequestId() });
     return result.message as string;
   }
-  return { status, checking, enabled, setEnabled, message, requesting, refresh, activate, openMeet, storageAvailable };
+  return { status, checking, enabled, setEnabled, message, requesting, refresh, activate, deactivate, openMeet, storageAvailable };
 }
 
 export type MacFocusController = ReturnType<typeof useMacFocus>;

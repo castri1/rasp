@@ -51,4 +51,49 @@ describe('Mac companion', () => {
       assert.equal(focusInput, new Date(deadline).toISOString());
     } finally { await new Promise(resolve => server.close(resolve)); }
   });
+  it('opens Meet with the configured work account', async () => {
+    const token = 'a'.repeat(64);
+    let openedUrl = '';
+    const handler = createCompanionHandler({ token, meetAccount: 'daniel@melonn.com', run: async (file, args) => {
+      assert.equal(file, '/usr/bin/open');
+      openedUrl = args[0];
+      return { stdout: '' };
+    } });
+    const server = createServer((req, res) => void handler(req, res));
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const response = await fetch(`http://127.0.0.1:${server.address().port}/open-meet`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: 'https://meet.google.com/abc-defg-hij', requestId: 'work-meeting-12345678901234' }),
+      });
+      assert.equal(response.status, 200);
+      const target = new URL(openedUrl);
+      assert.equal(target.hostname, 'meet.google.com');
+      assert.equal(target.searchParams.get('authuser'), 'daniel@melonn.com');
+    } finally { await new Promise(resolve => server.close(resolve)); }
+  });
+  it('turns Focus off and does not deduplicate list refreshes without an id', async () => {
+    const token = 'o'.repeat(64);
+    let offRuns = 0;
+    let listRuns = 0;
+    const handler = createCompanionHandler({ token, remindersHelper: '/tmp/reminders-bridge', run: async (file, args) => {
+      if (file === '/usr/bin/shortcuts' && args[0] === 'list') return { stdout: 'Rasp Focus\nRasp Focus Off\n' };
+      if (file === '/usr/bin/shortcuts') { offRuns++; return { stdout: '' }; }
+      if (file === '/tmp/reminders-bridge') { listRuns++; return { stdout: JSON.stringify([{ id: 'list-id', name: 'Trabajo' }]) }; }
+      throw new Error('unexpected command');
+    } });
+    const server = createServer((req, res) => void handler(req, res));
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const base = `http://127.0.0.1:${server.address().port}`;
+    try {
+      const stop = await fetch(`${base}/focus-off`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ requestId: 'stop-focus-123456789012345' }) });
+      assert.equal(stop.status, 200);
+      assert.equal(offRuns, 1);
+      for (let index = 0; index < 2; index++) {
+        const lists = await fetch(`${base}/reminders/lists`, { headers: { Authorization: `Bearer ${token}` } });
+        assert.equal(lists.status, 200);
+      }
+      assert.equal(listRuns, 2);
+    } finally { await new Promise(resolve => server.close(resolve)); }
+  });
 });

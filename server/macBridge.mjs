@@ -3,9 +3,11 @@ import { promisify } from 'node:util';
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { runReminders, validReminderCompleteRequest, validReminderListsRequest } from './reminders.mjs';
 
 const execute = promisify(execFile);
 export const SHORTCUT_NAME = 'Rasp Focus';
+export const STOP_SHORTCUT_NAME = 'Rasp Focus Off';
 const defaultConfigFile = resolve('.rasp/mac.json');
 const loopback = new Set(['127.0.0.1', 'localhost', '[::1]']);
 
@@ -26,6 +28,10 @@ export function validRequestId(value) {
 export function validFocusRequest(body, now = Date.now()) {
   return body && validRequestId(body.requestId) && Number.isSafeInteger(body.deadline) &&
     body.deadline > now && body.deadline <= now + 120 * 60000;
+}
+
+export function validFocusStopRequest(body) {
+  return body && validRequestId(body.requestId);
 }
 
 export function validMeetUrl(value) {
@@ -60,15 +66,17 @@ async function localStatus(run) {
   try {
     const { stdout } = await run('/usr/bin/shortcuts', ['list'], { timeout: 8000, maxBuffer: 256 * 1024 });
     const focusReady = stdout.split(/\r?\n/).some(name => name.trim() === SHORTCUT_NAME);
+    const focusStopReady = stdout.split(/\r?\n/).some(name => name.trim() === STOP_SHORTCUT_NAME);
     return {
       available: true,
       ready: true,
       focusReady,
+      focusStopReady,
       shortcut: SHORTCUT_NAME,
-      message: focusReady ? 'Mac conectado. Google Meet y No molestar están listos.' : `Mac conectado. Google Meet está listo; crea el atajo «${SHORTCUT_NAME}» para No molestar.`,
+      message: focusReady && focusStopReady ? 'Mac conectado. Meet y No molestar están listos.' : focusReady ? `Mac conectado. Crea «${STOP_SHORTCUT_NAME}» para apagar No molestar al terminar.` : `Mac conectado. Google Meet está listo; crea el atajo «${SHORTCUT_NAME}» para No molestar.`,
     };
   } catch {
-    return { available: true, ready: true, focusReady: false, shortcut: SHORTCUT_NAME, message: 'Mac conectado. Google Meet está listo; no se pudo consultar Atajos.' };
+    return { available: true, ready: true, focusReady: false, focusStopReady: false, shortcut: SHORTCUT_NAME, message: 'Mac conectado. Google Meet está listo; no se pudo consultar Atajos.' };
   }
 }
 
@@ -81,9 +89,18 @@ async function readBody(req) {
   let body = '';
   for await (const chunk of req) {
     body += chunk;
-    if (body.length > 4096) throw new Error('body too large');
+    if (body.length > 16000) throw new Error('body too large');
   }
   return JSON.parse(body);
+}
+
+async function runLocalFocusOff(run) {
+  try {
+    const status = await localStatus(run);
+    if (!status.focusStopReady) return { code: 409, data: { message: `Crea el atajo «${STOP_SHORTCUT_NAME}» para apagar No molestar al terminar.` } };
+    await run('/usr/bin/shortcuts', ['run', STOP_SHORTCUT_NAME], { timeout: 10000, maxBuffer: 64000 });
+    return { code: 200, data: { message: 'No molestar se apagó en tu Mac.' } };
+  } catch { return { code: 502, data: { message: 'El Mac no pudo apagar No molestar.' } }; }
 }
 
 async function runLocalFocus(run, body) {
@@ -134,23 +151,50 @@ async function companionRequest(store, request, path, body) {
   }
 }
 
-// Browser requests are same-origin. The Pi forwards only two fixed actions to an authenticated loopback companion.
+// Browser requests are same-origin. The Pi forwards only fixed, validated actions to an authenticated loopback companion.
 export function createMacMiddleware(options = {}) {
   const legacy = typeof options === 'function';
   const run = legacy ? options : options.run ?? execute;
   const store = legacy ? createMacConfigStore() : options.store ?? createMacConfigStore();
   const request = legacy ? fetch : options.request ?? fetch;
   const platform = legacy ? process.platform : options.platform ?? process.platform;
+  const remindersHelper = legacy ? process.env.RASP_REMINDERS_HELPER : options.remindersHelper ?? process.env.RASP_REMINDERS_HELPER;
   const requests = new Map();
   let busy = false;
 
   async function perform(path, body) {
-    if (platform === 'darwin') return path === '/focus' ? runLocalFocus(run, body) : runLocalMeet(run, body);
+    if (platform === 'darwin') return path === '/focus' ? runLocalFocus(run, body) : path === '/focus-off' ? runLocalFocusOff(run) : runLocalMeet(run, body);
     return companionRequest(store, request, path, body);
+  }
+
+  async function performReminders(action, body) {
+    if (platform !== 'darwin') return companionRequest(store, request, `/reminders/${action}`, body);
+    if (!remindersHelper) return { code: 503, data: { message: 'Instala de nuevo el acompañante del Mac para usar Recordatorios.' } };
+    try {
+      const result = await runReminders(run, remindersHelper, action, body);
+      if (action === 'lists') return { code: 200, data: { lists: result } };
+      if (action === 'tasks') return { code: 200, data: { tasks: result } };
+      return result.completed ? { code: 200, data: { message: 'Pendiente completado en Recordatorios.' } } : { code: 404, data: { message: 'El pendiente ya no existe en Recordatorios.' } };
+    } catch (error) { return { code: 503, data: { message: error.message } }; }
   }
 
   return async (req, res, next) => {
     const path = req.url?.split('?')[0];
+    if (path?.startsWith('/api/reminders/')) {
+      if (!allowedRequest(req)) return json(res, 403, { message: 'Esta conexión sólo está disponible desde Rasp.' });
+      const action = path.slice('/api/reminders/'.length);
+      if (action === 'lists' && req.method === 'GET') {
+        const result = await performReminders('lists');
+        return json(res, result.code, result.data);
+      }
+      if (!['tasks', 'complete'].includes(action) || req.method !== 'POST' || !req.headers['content-type']?.startsWith('application/json') || req.headers['x-rasp-request'] !== 'reminders') return json(res, 404, { message: 'Acción no disponible.' });
+      let reminderBody;
+      try { reminderBody = await readBody(req); } catch { return json(res, 400, { message: 'Solicitud no válida.' }); }
+      if (action === 'tasks' && !validReminderListsRequest(reminderBody)) return json(res, 400, { message: 'Selección de listas no válida.' });
+      if (action === 'complete' && !validReminderCompleteRequest(reminderBody)) return json(res, 400, { message: 'Pendiente no válido.' });
+      const result = await performReminders(action, reminderBody);
+      return json(res, result.code, result.data);
+    }
     if (!path?.startsWith('/api/mac/')) return next();
     if (!allowedRequest(req)) return json(res, 403, { message: 'Esta conexión sólo está disponible desde Rasp.' });
     if (path === '/api/mac/status' && req.method === 'GET') {
@@ -158,12 +202,13 @@ export function createMacMiddleware(options = {}) {
       return json(res, result.code, result.data);
     }
 
-    const action = path === '/api/mac/focus' ? 'focus' : path === '/api/mac/open-meet' ? 'open-meet' : '';
+    const action = path === '/api/mac/focus' ? 'focus' : path === '/api/mac/focus-off' ? 'focus-off' : path === '/api/mac/open-meet' ? 'open-meet' : '';
     if (!action || req.method !== 'POST') return json(res, 404, { message: 'Acción no disponible.' });
     if (!req.headers['content-type']?.startsWith('application/json') || req.headers['x-rasp-request'] !== action) return json(res, 400, { message: 'Solicitud no válida.' });
     let body;
     try { body = await readBody(req); } catch { return json(res, 400, { message: 'Solicitud no válida.' }); }
     if (action === 'focus' && !validFocusRequest(body)) return json(res, 400, { message: 'La duración debe ser de hasta 120 minutos y terminar en el futuro.' });
+    if (action === 'focus-off' && !validFocusStopRequest(body)) return json(res, 400, { message: 'Solicitud no válida.' });
     if (action === 'open-meet' && !validMeetRequest(body)) return json(res, 400, { message: 'La reunión no tiene un enlace válido de Google Meet.' });
     if (requests.has(body.requestId)) {
       const saved = await requests.get(body.requestId);
