@@ -1,3 +1,4 @@
+import AppKit
 import EventKit
 import Foundation
 
@@ -6,7 +7,6 @@ let responsePath = CommandLine.arguments.count >= 4 ? CommandLine.arguments[3] :
 enum BridgeFailure: Error {
     case invalidInput
     case accessDenied
-    case timedOut
 }
 
 func fail(_ message: String) -> Never {
@@ -14,35 +14,6 @@ func fail(_ message: String) -> Never {
     if let responsePath { try? data.write(to: URL(fileURLWithPath: responsePath), options: .atomic) }
     else { FileHandle.standardError.write(Data((message + "\n").utf8)) }
     exit(1)
-}
-
-func waitForCallback(_ completed: @escaping () -> Bool, timeout: TimeInterval = 30) -> Bool {
-    let deadline = Date().addingTimeInterval(timeout)
-    while !completed() && Date() < deadline {
-        RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.05))
-    }
-    return completed()
-}
-
-func requestAccess(_ store: EKEventStore) throws {
-    var completed = false
-    var granted = false
-    var requestError: Error?
-    if #available(macOS 14.0, *) {
-        store.requestFullAccessToReminders { allowed, error in
-            granted = allowed
-            requestError = error
-            completed = true
-        }
-    } else {
-        store.requestAccess(to: .reminder) { allowed, error in
-            granted = allowed
-            requestError = error
-            completed = true
-        }
-    }
-    guard waitForCallback({ completed }) else { throw BridgeFailure.timedOut }
-    guard requestError == nil, granted else { throw BridgeFailure.accessDenied }
 }
 
 func jsonPayload() throws -> [String: Any] {
@@ -59,63 +30,88 @@ func writeJSON(_ value: Any) throws {
     else { FileHandle.standardOutput.write(data) }
 }
 
-let store = EKEventStore()
-do {
-    guard CommandLine.arguments.count >= 2 else { throw BridgeFailure.invalidInput }
-    try requestAccess(store)
-    let action = CommandLine.arguments[1]
-    let calendars = store.calendars(for: .reminder)
-
-    if action == "lists" {
-        try writeJSON(calendars.map { ["id": $0.calendarIdentifier, "name": $0.title] })
-        exit(0)
-    }
-
-    let payload = try jsonPayload()
-    if action == "tasks" {
-        guard let listIds = payload["listIds"] as? [String] else { throw BridgeFailure.invalidInput }
-        let selected = calendars.filter { listIds.contains($0.calendarIdentifier) }
-        let predicate = store.predicateForIncompleteReminders(withDueDateStarting: nil, ending: nil, calendars: selected)
-        var completed = false
-        var fetched: [EKReminder]?
-        store.fetchReminders(matching: predicate) { reminders in
-            fetched = reminders
-            completed = true
+func requestReminderAccess(_ store: EKEventStore) async throws {
+    let granted: Bool
+    if #available(macOS 14.0, *) {
+        granted = try await store.requestFullAccessToReminders()
+    } else {
+        granted = try await withCheckedThrowingContinuation { continuation in
+            store.requestAccess(to: .reminder) { allowed, error in
+                if let error { continuation.resume(throwing: error) }
+                else { continuation.resume(returning: allowed) }
+            }
         }
-        guard waitForCallback({ completed }), let reminders = fetched else { throw BridgeFailure.timedOut }
-        let formatter = ISO8601DateFormatter()
-        let result: [[String: Any]] = reminders.map { reminder in
-            var item: [String: Any] = [
-                "id": reminder.calendarItemIdentifier,
-                "title": reminder.title ?? "Recordatorio",
-                "notes": reminder.notes ?? "",
-                "listId": reminder.calendar.calendarIdentifier,
-                "listName": reminder.calendar.title,
-                "dueAt": "",
-                "priority": reminder.priority,
-            ]
-            if let date = reminder.dueDateComponents?.date { item["dueAt"] = formatter.string(from: date) }
-            return item
-        }
-        try writeJSON(result)
-        exit(0)
     }
-
-    if action == "complete" {
-        guard let taskId = payload["taskId"] as? String,
-              let reminder = store.calendarItem(withIdentifier: taskId) as? EKReminder else { throw BridgeFailure.invalidInput }
-        reminder.isCompleted = true
-        reminder.completionDate = Date()
-        try store.save(reminder, commit: true)
-        try writeJSON(["completed": true])
-        exit(0)
-    }
-
-    throw BridgeFailure.invalidInput
-} catch BridgeFailure.accessDenied {
-    fail("Autoriza Recordatorios para Rasp en Ajustes del Sistema.")
-} catch BridgeFailure.timedOut {
-    fail("Recordatorios no respondió a tiempo.")
-} catch {
-    fail("No se pudo completar la acción en Recordatorios.")
+    guard granted else { throw BridgeFailure.accessDenied }
 }
+
+func incompleteReminders(_ store: EKEventStore, calendars: [EKCalendar]) async -> [EKReminder] {
+    let predicate = store.predicateForIncompleteReminders(withDueDateStarting: nil, ending: nil, calendars: calendars)
+    return await withCheckedContinuation { continuation in
+        store.fetchReminders(matching: predicate) { reminders in
+            continuation.resume(returning: reminders ?? [])
+        }
+    }
+}
+
+@MainActor
+func runBridge() async {
+    let store = EKEventStore()
+    do {
+        guard CommandLine.arguments.count >= 2 else { throw BridgeFailure.invalidInput }
+        try await requestReminderAccess(store)
+        let action = CommandLine.arguments[1]
+        let calendars = store.calendars(for: .reminder)
+
+        if action == "lists" {
+            try writeJSON(calendars.map { ["id": $0.calendarIdentifier, "name": $0.title] })
+            exit(0)
+        }
+
+        let payload = try jsonPayload()
+        if action == "tasks" {
+            guard let listIds = payload["listIds"] as? [String] else { throw BridgeFailure.invalidInput }
+            let selected = calendars.filter { listIds.contains($0.calendarIdentifier) }
+            let reminders = await incompleteReminders(store, calendars: selected)
+            let formatter = ISO8601DateFormatter()
+            let result: [[String: Any]] = reminders.map { reminder in
+                var item: [String: Any] = [
+                    "id": reminder.calendarItemIdentifier,
+                    "title": reminder.title ?? "Recordatorio",
+                    "notes": reminder.notes ?? "",
+                    "listId": reminder.calendar.calendarIdentifier,
+                    "listName": reminder.calendar.title,
+                    "dueAt": "",
+                    "priority": reminder.priority,
+                ]
+                if let date = reminder.dueDateComponents?.date { item["dueAt"] = formatter.string(from: date) }
+                return item
+            }
+            try writeJSON(result)
+            exit(0)
+        }
+
+        if action == "complete" {
+            guard let taskId = payload["taskId"] as? String,
+                  let reminder = store.calendarItem(withIdentifier: taskId) as? EKReminder else { throw BridgeFailure.invalidInput }
+            reminder.isCompleted = true
+            reminder.completionDate = Date()
+            try store.save(reminder, commit: true)
+            try writeJSON(["completed": true])
+            exit(0)
+        }
+
+        throw BridgeFailure.invalidInput
+    } catch BridgeFailure.accessDenied {
+        fail("Autoriza Recordatorios para Rasp en Ajustes del Sistema.")
+    } catch {
+        fail("No se pudo completar la acción en Recordatorios.")
+    }
+}
+
+let application = NSApplication.shared
+let needsPermissionPrompt = EKEventStore.authorizationStatus(for: .reminder) == .notDetermined
+application.setActivationPolicy(needsPermissionPrompt ? .regular : .accessory)
+if needsPermissionPrompt { application.activate(ignoringOtherApps: true) }
+Task { await runBridge() }
+application.run()

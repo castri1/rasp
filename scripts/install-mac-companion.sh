@@ -13,6 +13,8 @@ TOKEN="$(openssl rand -hex 32)"
 MEET_ACCOUNT="${RASP_MEET_ACCOUNT:-}"
 REMINDERS_HELPER="$INSTALL_DIR/reminders-bridge"
 REMINDERS_APP="$INSTALL_DIR/RaspReminders.app"
+SHORTCUTS_RUNNER="$INSTALL_DIR/shortcuts-runner"
+SHORTCUTS_APP="$INSTALL_DIR/RaspShortcuts.app"
 GUI_DOMAIN="gui/$(id -u)"
 
 if [[ ! -f "$IDENTITY" ]]; then
@@ -66,6 +68,54 @@ printf '{"token":"%s","meetAccount":"%s"}\n' "$TOKEN" "$MEET_ACCOUNT" > "$CONFIG
 chmod 600 "$CONFIG_FILE"
 chmod 700 "$REMINDERS_HELPER"
 
+mkdir -p "$SHORTCUTS_APP/Contents/MacOS"
+cat > "$SHORTCUTS_APP/Contents/Info.plist" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleExecutable</key><string>RaspShortcuts</string>
+  <key>CFBundleIdentifier</key><string>com.rasp.shortcuts</string>
+  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+  <key>CFBundleName</key><string>Rasp Shortcuts</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>1.0</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>LSUIElement</key><true/>
+</dict></plist>
+EOF
+cat > "$SHORTCUTS_APP/Contents/MacOS/RaspShortcuts" <<'EOF'
+#!/bin/zsh
+set -u
+if (( $# < 2 )); then exit 2; fi
+response="${@[-1]}"
+arguments=("${@[1,-2]}")
+if output=$(/usr/bin/shortcuts "${arguments[@]}" 2>&1); then
+  { print 'OK'; print -rn -- "$output"; } > "$response"
+else
+  { print 'ERROR'; print -rn -- "$output"; } > "$response"
+fi
+EOF
+chmod 700 "$SHORTCUTS_APP/Contents/MacOS/RaspShortcuts"
+codesign --force --sign - --identifier com.rasp.shortcuts "$SHORTCUTS_APP" >/dev/null
+cat > "$SHORTCUTS_RUNNER" <<EOF
+#!/bin/zsh
+set -euo pipefail
+response="\$(mktemp "\${TMPDIR:-/tmp}/rasp-shortcuts.XXXXXX")"
+trap 'rm -f "\$response"' EXIT
+/usr/bin/open -W -n "$SHORTCUTS_APP" --args "\$@" "\$response"
+if [[ ! -s "\$response" ]]; then
+  print -u2 'Atajos no respondió.'
+  exit 1
+fi
+runner_result="\$(head -n 1 "\$response")"
+if [[ "\$runner_result" != 'OK' ]]; then
+  tail -n +2 "\$response" >&2
+  exit 1
+fi
+tail -n +2 "\$response"
+EOF
+chmod 700 "$SHORTCUTS_RUNNER"
+
 cat > "$COMPANION_PLIST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -80,6 +130,7 @@ cat > "$COMPANION_PLIST" <<EOF
     <key>RASP_MAC_PORT</key><string>4175</string>
     <key>RASP_FOCUS_READY_FILE</key><string>$INSTALL_DIR/focus-ready</string>
     <key>RASP_REMINDERS_HELPER</key><string>$REMINDERS_HELPER</string>
+    <key>RASP_SHORTCUTS_CLI</key><string>$SHORTCUTS_RUNNER</string>
   </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>

@@ -76,9 +76,9 @@ describe('Mac companion', () => {
     const token = 'o'.repeat(64);
     let offRuns = 0;
     let listRuns = 0;
-    const handler = createCompanionHandler({ token, remindersHelper: '/tmp/reminders-bridge', run: async (file, args) => {
-      if (file === '/usr/bin/shortcuts' && args[0] === 'list') return { stdout: 'Rasp Focus\nRasp Focus Off\n' };
-      if (file === '/usr/bin/shortcuts') { offRuns++; return { stdout: '' }; }
+    const handler = createCompanionHandler({ token, remindersHelper: '/tmp/reminders-bridge', shortcutsCli: '/private/shortcuts-runner', run: async (file, args) => {
+      if (file === '/private/shortcuts-runner' && args[0] === 'list') return { stdout: 'Rasp Focus\nRasp Focus Off\n' };
+      if (file === '/private/shortcuts-runner') { offRuns++; return { stdout: '' }; }
       if (file === '/tmp/reminders-bridge') { listRuns++; return { stdout: JSON.stringify([{ id: 'list-id', name: 'Trabajo' }]) }; }
       throw new Error('unexpected command');
     } });
