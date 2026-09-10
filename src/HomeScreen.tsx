@@ -44,7 +44,8 @@ export default function HomeScreen({ controller }: { controller: HomeController 
   const allDevices = useMemo(() => [...home.rooms.flatMap(room => room.devices), ...home.unassignedDevices], [home.rooms, home.unassignedDevices]);
   const devices = allDevices.length;
   const on = allDevices.filter(device => device.state === 'on').length;
-  const ready = home.state === 'ready';
+  const connected = ['ready', 'empty'].includes(home.state);
+  const houseSummary = home.state === 'ready' ? on ? `${on} encendido${on === 1 ? '' : 's'}` : 'Todo en calma' : home.state === 'empty' ? 'Sin dispositivos' : home.state === 'loading' ? 'Actualizando' : 'Por conectar';
   const selectedRoom = home.rooms.find(room => room.id === selectedRoomId) || home.rooms[0];
   const invalidDraft = draftRooms.some(room => !room.name.trim()) || draftDevices.some(device => !device.name.trim());
 
@@ -107,8 +108,8 @@ export default function HomeScreen({ controller }: { controller: HomeController 
 
   return <main className="home-screen app-content" aria-label="Plano y control de la casa">
     <header className="home-heading">
-      <div><span className="eyebrow">TU CASA, DE UN VISTAZO</span><h1><HouseLine size={21} />Casa <i>·</i> <strong>{ready ? on ? `${on} encendido${on === 1 ? '' : 's'}` : 'Todo en calma' : 'Por conectar'}</strong></h1></div>
-      <div className="home-heading-actions"><span className={`home-live ${ready ? 'is-live' : ''}`}><i />{devices ? `${devices} dispositivos` : 'Sin dispositivos'}</span><button aria-label="Actualizar estados" disabled={busyRoom !== null} onClick={() => void controller.refresh()}><ArrowsClockwise size={17} className={home.state === 'loading' ? 'spinning' : ''} /></button><button onClick={openEditor}><PencilSimple size={15} />Editar</button><button className="all-off" disabled={!on || busyRoom !== null} onClick={() => void controller.toggle('all', false)}><Power size={15} />Apagar</button></div>
+      <div><span className="eyebrow">TU CASA, DE UN VISTAZO</span><h1><HouseLine size={21} />Casa <i>·</i> <strong>{houseSummary}</strong></h1></div>
+      <div className="home-heading-actions"><span className={`home-live ${connected ? 'is-live' : ''}`}><i />{devices ? `${devices} dispositivos` : connected ? 'Home Assistant' : 'Sin conexión'}</span><button aria-label="Actualizar estados" disabled={busyRoom !== null} onClick={() => void controller.refresh()}><ArrowsClockwise size={17} className={home.state === 'loading' ? 'spinning' : ''} /></button><button onClick={openEditor}><PencilSimple size={15} />Editar</button><button className="all-off" disabled={!on || busyRoom !== null} onClick={() => void controller.toggle('all', false)}><Power size={15} />Apagar</button></div>
     </header>
     <div className="home-layout">
       <section className="real-house-plan" aria-label="Plano de la casa">
@@ -140,6 +141,6 @@ export default function HomeScreen({ controller }: { controller: HomeController 
         </div>
       </aside>}
     </div>
-    <footer className={`home-status ${error ? 'has-error' : ''}`}>{error ? <WarningCircle size={14} /> : <span className={`home-status-dot ${ready ? 'is-live' : ''}`} />}<span>{error || home.message}</span></footer>
+    <footer className={`home-status ${error ? 'has-error' : ''}`}>{error ? <WarningCircle size={14} /> : <span className={`home-status-dot ${connected ? 'is-live' : ''}`} />}<span>{error || home.message}</span></footer>
   </main>;
 }
