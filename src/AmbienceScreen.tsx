@@ -17,14 +17,15 @@ export default function AmbienceScreen({ alexa, onSettings }: { alexa: AlexaCont
     </section>
     <section className="ambience-scenes"><div className="ambience-heading"><h2>Escenas</h2><button onClick={() => onSettings(config.scenes[0]?.id)}><SlidersHorizontal size={15} />Editar</button></div>
       <div className="scene-grid">{config.scenes.map(scene => {
-        const assigned = Boolean(config.deviceId && scene.command);
+        const command = scene.active ? scene.offCommand : scene.command;
+        const assigned = Boolean(config.deviceId && command);
         const pending = pendingScene === scene.id;
-        return <button key={scene.id} className={`scene-card scene-${scene.id}`} aria-label={`${assigned ? 'Ejecutar' : 'Configurar'} escena ${scene.name}`} disabled={busy} onClick={() => assigned ? void alexa.run(scene.id) : onSettings(scene.id)}>
+        return <button key={scene.id} className={`scene-card scene-${scene.id} ${scene.active ? 'is-active' : ''}`} aria-label={`${assigned ? scene.active ? 'Apagar' : 'Activar' : 'Configurar'} escena ${scene.name}`} aria-pressed={scene.active} disabled={busy} onClick={() => assigned ? void alexa.run(scene.id) : onSettings(scene.id)}>
           <span className="scene-card-top"><span className="scene-symbol"><SceneIcon icon={scene.icon} /></span>{pending ? <CircleNotch size={17} className="spinning" /> : <ArrowUpRight size={16} />}</span>
-          <strong>{scene.name}</strong><span className="scene-description">{scene.description}</span><span className="scene-state">{pending ? 'Enviando…' : assigned ? 'Ejecutar rutina' : 'Asignar rutina'}<span className="scene-line" /></span>
+          <strong>{scene.name}</strong><span className="scene-description">{scene.description}</span><span className="scene-state">{pending ? 'Enviando…' : assigned ? scene.active ? 'Activa · tocar para apagar' : 'Tocar para activar' : scene.active ? 'Configurar apagado' : 'Asignar rutina'}<span className="scene-line" /></span>
         </button>;
       })}</div>
-      <div className={`ambience-feedback ${alexa.error ? 'has-error' : ''}`} role="status">{alexa.message ? <><span className="feedback-mark">{alexa.error ? '!' : pendingScene ? '·' : <Check size={14} />}</span><span>{alexa.message}</span></> : lastScene ? <><Check size={14} /><span>Última orden: {lastScene.name}. No se consulta el estado de los bombillos.</span></> : <><Lamp size={15} /><span>{connected ? 'Alexa aplica la iluminación definida en cada rutina.' : 'Vincula Home Assistant y elige tus rutinas para empezar.'}</span></>}</div>
+      <div className={`ambience-feedback ${alexa.error ? 'has-error' : ''}`} role="status">{alexa.message ? <><span className="feedback-mark">{alexa.error ? '!' : pendingScene ? '·' : <Check size={14} />}</span><span>{alexa.message}</span></> : lastScene ? <><Check size={14} /><span>Última orden: {lastScene.name} {alexa.lastSent?.active ? 'activada' : 'apagada'}. Estado estimado.</span></> : <><Lamp size={15} /><span>{connected ? 'El estado muestra la última orden enviada; Alexa no confirma el resultado.' : 'Vincula Home Assistant y elige tus rutinas para empezar.'}</span></>}</div>
     </section>
   </main>;
 }

@@ -60,7 +60,7 @@ Para sustituir el token, introduce el nuevo y guarda. Si cambias la dirección a
 
 En la app de Alexa, crea o usa rutinas con una frase de activación que puedas pronunciar, y asigna ahí las acciones sobre tus bombillos. Prueba la frase por voz en el Echo elegido.
 
-En **Ajustes → Alexa → Escenas** puedes crear hasta 12 escenas desde la pantalla táctil. Cada una permite editar nombre, descripción, icono y la rutina o comando. **Nueva** añade una escena y **Eliminar** la retira cuando guardas los cambios.
+En **Ajustes → Alexa → Escenas** puedes crear hasta 12 escenas desde la pantalla táctil. Cada una permite editar nombre, descripción, icono, comando para activar y comando para apagar. **Nueva** añade una escena y **Eliminar** la retira cuando guardas los cambios.
 
 Rasp propone las rutinas descubiertas en Home Assistant. Cuando el texto coincide con una de ellas, pulsa directamente su entidad `button`; esto evita depender de la interpretación de una frase. Si escribes otra orden, usa `alexa_devices.send_text_command`, que Alexa procesa como una petición hablada.
 
@@ -68,7 +68,8 @@ Rasp propone las rutinas descubiertas en Home Assistant. Cuando el texto coincid
 
 ## 5. Ejecutar y automatizar
 
-- Toca una escena en **Escenas** para enviarla. Una escena sin asignar lleva a su configuración.
+- Toca una escena en **Escenas** para activarla y vuelve a tocarla para apagarla. El estado se cambia después de que Home Assistant acepta la orden y se conserva al reiniciar. Como Alexa no devuelve el estado real de una frase, la indicación es el último comando enviado.
+- Una escena sin comando de activación lleva a su configuración. Si ya está activa y aún no tiene comando de apagado, el siguiente toque abre el editor para completarlo.
 - Cualquier escena puede asociarse al inicio de un Pomodoro o de un descanso. Viene desactivado.
 - Pausar, continuar, reiniciar, recargar o terminar un temporizador no ejecuta otra escena automáticamente. Al terminar un Pomodoro, el descanso se prepara y comienza con una acción explícita.
 - Los escenarios de calendario no accionan luces automáticamente.
@@ -82,6 +83,7 @@ Si hay un error de conexión, el Pomodoro continúa y se muestra el error. No se
 - `src/AlexaSettings.tsx`: guía, conexión, dispositivo y editor de escenas dinámicas.
 - `src/alexa.ts` y `src/useAlexa.ts`: modelo y cliente.
 - `server/alexaBridge.mjs`: configuración privada, comprobación de Home Assistant, descubrimiento de dispositivos de Alexa y ejecución de frases guardadas.
+- `server/homeBridge.mjs`: frases de encendido y apagado por ambiente, estado estimado persistente y control directo de entidades cuando están disponibles.
 - `server/alexaBridge.test.mjs`: pruebas del conector con servicios simulados.
 
 El conector funciona con `npm run dev` y con `npm run build` seguido de `npm start`. El servidor escucha en loopback. En la Raspberry, el navegador y el servidor de Rasp pueden ejecutarse en el mismo equipo y este último comunicarse con Home Assistant en la red local; no se expone una API de control sin autenticación a toda la red.

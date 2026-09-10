@@ -17,7 +17,7 @@ export function useAlexa() {
   const [connection, setConnection] = useState<AlexaConnection>({ state: 'loading', message: 'Comprobando la configuración…', devices: [], routines: [] });
   const [busy, setBusy] = useState(false);
   const [pendingScene, setPendingScene] = useState<SceneId | null>(null);
-  const [lastSent, setLastSent] = useState<{ scene: SceneId; sentAt: string } | null>(null);
+  const [lastSent, setLastSent] = useState<{ scene: SceneId; active: boolean; sentAt: string } | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState(false);
   useEffect(() => {
@@ -43,13 +43,17 @@ export function useAlexa() {
     } catch (err) { setMessage(err instanceof Error ? err.message : 'No se pudo guardar.'); setError(true); return false; }
     finally { setBusy(false); }
   }
-  async function run(scene: SceneId, source: 'manual' | 'focus' | 'break' = 'manual') {
+  async function run(scene: SceneId, source: 'manual' | 'focus' | 'break' = 'manual', turnOn?: boolean) {
     if (busy) return;
     if (source !== 'manual' && config.automatic[`${source}SceneId`] !== scene) return;
+    const selected = config.scenes.find(item => item.id === scene);
+    if (!selected) return;
+    const nextActive = turnOn ?? (source === 'manual' ? !selected.active : true);
     setBusy(true); setPendingScene(scene); setError(false); setMessage('Enviando la orden a Alexa…');
     try {
-      const result = await api('run', { scene, source, requestId: createRequestId() });
-      setMessage(result.message); setLastSent({ scene, sentAt: result.sentAt }); setConnection(previous => ({ ...previous, state: 'ready', message: 'Conexión lista.' })); return result.message as string;
+      const result = await api('run', { scene, source, turnOn: nextActive, requestId: createRequestId() });
+      setConfig(previous => ({ ...previous, scenes: previous.scenes.map(item => item.id === scene ? { ...item, active: result.active, changedAt: result.sentAt } : item) }));
+      setMessage(result.message); setLastSent({ scene, active: result.active, sentAt: result.sentAt }); setConnection(previous => ({ ...previous, state: 'ready', message: 'Conexión lista.' })); return result.message as string;
     } catch (err) { const text = err instanceof Error ? err.message : 'No se pudo enviar la escena.'; setMessage(text); setError(true); setConnection(previous => ({ ...previous, state: 'error', message: text })); return text; }
     finally { setBusy(false); setPendingScene(null); }
   }

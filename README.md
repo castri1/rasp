@@ -221,11 +221,13 @@ La fuente Manrope se sirve localmente y los iconos son de Phosphor. No se requie
 
 ## Ambiente y Alexa
 
-El módulo **Escenas** permite crear, editar y borrar hasta doce escenas mediante las rutinas o comandos de tu cuenta de Alexa. En **Ajustes → Alexa** están la conexión con Home Assistant, el selector de dispositivo y la configuración completa de cada escena. Cualquier escena puede asignarse al inicio de Enfoque o Descanso.
+El módulo **Escenas** permite crear, editar y borrar hasta doce escenas mediante las rutinas o comandos de tu cuenta de Alexa. Cada escena admite una orden para activarla y otra para apagarla; al tocarla, Rasp alterna entre ambas y conserva el último estado aceptado. En **Ajustes → Alexa** están la conexión con Home Assistant, el selector de dispositivo y la configuración completa de cada escena. Cualquier escena puede asignarse al inicio de Enfoque o Descanso.
 
 La instalación actual ya está vinculada con Home Assistant y **Alexa Devices**. Rasp pulsa directamente una rutina cuando el nombre coincide; para otros textos usa `alexa_devices.send_text_command` sobre el Echo seleccionado.
 
-La pantalla **Casa** usa el plano real del apartamento. Al tocar un ambiente se ven sus dispositivos y se pueden encender por separado o como grupo. Desde **Editar** se pueden renombrar los ambientes dibujados, añadir hasta seis ambientes adicionales, cambiar el nombre visible de cada dispositivo y asociarlo a otro ambiente. Los bombillos e interruptores conectados a Home Assistant aparecen en el editor aunque todavía no tengan un área asignada. Estos nombres se guardan sólo en Rasp y no modifican Alexa ni Home Assistant.
+La pantalla **Casa** usa el plano real del apartamento. Desde **Editar**, cada ambiente puede guardar una frase para encender y otra para apagar. Al tocar ese espacio en el plano, Rasp envía la frase correspondiente por el Echo seleccionado y conserva el último estado aceptado. Si el ambiente no usa frases y Home Assistant expone sus bombillos, conserva el control directo por dispositivo y por grupo. También se pueden renombrar los ambientes dibujados, añadir hasta seis ambientes adicionales, cambiar el nombre visible de cada dispositivo y asociarlo a otro ambiente.
+
+El estado de un ambiente controlado por frases es estimado: representa la última orden que Home Assistant aceptó enviar a Alexa. Si alguien usa la voz, un interruptor físico u otra aplicación, Rasp no puede detectar ese cambio mediante este mecanismo.
 
 La organización se persiste de forma privada en `.rasp/home.json`. Los ambientes adicionales aparecen en el selector de Casa sin alterar la geometría; los diez espacios principales conservan su lugar en el plano.
 

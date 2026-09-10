@@ -1,9 +1,10 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { createHomeMiddleware, EMPTY_HOME_CONFIG, HOME_ENTITIES_TEMPLATE } from './homeBridge.mjs';
+import { createHomeMiddleware, EMPTY_HOME_CONFIG, HOME_ENTITIES_TEMPLATE, validateHomeConfig } from './homeBridge.mjs';
 
-const config = { url: 'http://homeassistant.local:8123', token: 'private-test-token' };
+const deviceId = 'a'.repeat(32);
+const config = { url: 'http://homeassistant.local:8123', token: 'private-test-token', deviceId };
 const store = { load: async () => config };
 async function serve(upstream, test, initialConfig = structuredClone(EMPTY_HOME_CONFIG)) {
   let savedConfig = initialConfig;
@@ -32,6 +33,7 @@ function upstream(calls) {
       ]);
     }
     if (url.endsWith('/services/homeassistant/turn_off')) return Response.json([]);
+    if (url.endsWith('/services/alexa_devices/send_text_command')) return Response.json([]);
     throw new Error(`Unexpected endpoint ${url}`);
   };
 }
@@ -54,7 +56,7 @@ describe('Home Assistant house bridge', () => {
   it('only controls entities discovered for the selected room', async () => {
     const calls = [];
     await serve(upstream(calls), async call => {
-      const result = await call('toggle', { roomId: 'sala', turnOn: false });
+      const result = await call('toggle', { roomId: 'sala', turnOn: false, requestId: 'home-room-toggle-001' });
       assert.equal(result.status, 200);
       const action = calls.find(item => item.url.endsWith('/services/homeassistant/turn_off'));
       assert.deepEqual(JSON.parse(action.options.body), { entity_id: ['light.lampara_sala'] });
@@ -62,9 +64,9 @@ describe('Home Assistant house bridge', () => {
   });
   it('does not pretend an empty room can be controlled', async () => {
     await serve(upstream([]), async call => {
-      const result = await call('toggle', { roomId: 'cocina', turnOn: true });
+      const result = await call('toggle', { roomId: 'cocina', turnOn: true, requestId: 'home-room-toggle-002' });
       assert.equal(result.status, 409);
-      assert.equal(result.data.code, 'empty_room');
+      assert.equal(result.data.code, 'missing_command');
     });
   });
   it('stores room names, manual assignments and private display names', async () => {
@@ -72,7 +74,7 @@ describe('Home Assistant house bridge', () => {
     await serve(upstream(calls), async (call, saved) => {
       const rooms = structuredClone(EMPTY_HOME_CONFIG.rooms);
       rooms.find(room => room.id === 'juan-rafael').name = 'Cuarto Juan Rafael';
-      rooms.push({ id: 'custom-biblioteca', name: 'Biblioteca', slot: 'other' });
+      rooms.push({ id: 'custom-biblioteca', name: 'Biblioteca', slot: 'other', onCommand: '', offCommand: '', assumedOn: false, changedAt: '' });
       const result = await call('configuration', {
         rooms,
         devices: [
@@ -105,10 +107,42 @@ describe('Home Assistant house bridge', () => {
   it('controls one manually named device without affecting its room peers', async () => {
     const calls = [];
     await serve(upstream(calls), async call => {
-      const result = await call('toggle', { entityId: 'light.lampara_sala', turnOn: false });
+      const result = await call('toggle', { entityId: 'light.lampara_sala', turnOn: false, requestId: 'home-device-toggle-01' });
       assert.equal(result.status, 200);
       const action = calls.find(item => item.url.endsWith('/services/homeassistant/turn_off'));
       assert.deepEqual(JSON.parse(action.options.body), { entity_id: ['light.lampara_sala'] });
     });
+  });
+  it('sends configurable room phrases once and remembers the last accepted order', async () => {
+    const calls = [];
+    const initial = structuredClone(EMPTY_HOME_CONFIG);
+    Object.assign(initial.rooms.find(room => room.id === 'sala'), { onCommand: 'Alexa, prende la sala', offCommand: 'Alexa, apaga la sala' });
+    await serve(upstream(calls), async (call, saved) => {
+      const onInput = { roomId: 'sala', turnOn: true, requestId: 'home-alexa-toggle-001' };
+      const first = await call('toggle', onInput);
+      const duplicate = await call('toggle', onInput);
+      assert.equal(first.status, 200);
+      assert.equal(duplicate.status, 200);
+      assert.equal(first.data.control, 'alexa');
+      assert.equal(saved().rooms.find(room => room.id === 'sala').assumedOn, true);
+      const off = await call('toggle', { roomId: 'sala', turnOn: false, requestId: 'home-alexa-toggle-002' });
+      assert.equal(off.status, 200);
+      assert.equal(saved().rooms.find(room => room.id === 'sala').assumedOn, false);
+      const commands = calls.filter(item => item.url.endsWith('/services/alexa_devices/send_text_command'));
+      assert.deepEqual(commands.map(item => JSON.parse(item.options.body)), [
+        { device_id: deviceId, text_command: 'prende la sala' },
+        { device_id: deviceId, text_command: 'apaga la sala' },
+      ]);
+      assert.equal(calls.some(item => item.url.endsWith('/services/homeassistant/turn_on')), false);
+    }, initial);
+  });
+  it('requires command pairs and preserves the estimated state while phrases remain unchanged', () => {
+    const previous = structuredClone(EMPTY_HOME_CONFIG);
+    Object.assign(previous.rooms.find(room => room.id === 'sala'), { onCommand: 'prende sala', offCommand: 'apaga sala', assumedOn: true, changedAt: '2026-09-10T10:00:00.000Z' });
+    const unchanged = validateHomeConfig({ rooms: previous.rooms, devices: [] }, previous);
+    assert.equal(unchanged.rooms.find(room => room.id === 'sala').assumedOn, true);
+    const incomplete = structuredClone(previous.rooms);
+    incomplete.find(room => room.id === 'sala').offCommand = '';
+    assert.throws(() => validateHomeConfig({ rooms: incomplete, devices: [] }, previous));
   });
 });

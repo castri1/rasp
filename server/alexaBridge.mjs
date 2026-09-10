@@ -5,12 +5,12 @@ import { allowedRequest } from './macBridge.mjs';
 
 export const SCENE_ICONS = ['lamp', 'focus', 'coffee', 'meeting', 'moon'];
 export const DEFAULT_SCENES = [
-  { id: 'focus', name: 'Enfoque', description: 'Un espacio para una sola cosa.', icon: 'focus', command: '' },
-  { id: 'break', name: 'Descanso', description: 'Baja el ritmo. Toma aire.', icon: 'coffee', command: '' },
-  { id: 'meeting', name: 'Reunión', description: 'Prepara tu espacio para conectar.', icon: 'meeting', command: '' },
-  { id: 'evening', name: 'Fin del día', description: 'Todo a su tiempo. También parar.', icon: 'moon', command: '' },
+  { id: 'focus', name: 'Enfoque', description: 'Un espacio para una sola cosa.', icon: 'focus', command: '', offCommand: '', active: false, changedAt: '' },
+  { id: 'break', name: 'Descanso', description: 'Baja el ritmo. Toma aire.', icon: 'coffee', command: '', offCommand: '', active: false, changedAt: '' },
+  { id: 'meeting', name: 'Reunión', description: 'Prepara tu espacio para conectar.', icon: 'meeting', command: '', offCommand: '', active: false, changedAt: '' },
+  { id: 'evening', name: 'Fin del día', description: 'Todo a su tiempo. También parar.', icon: 'moon', command: '', offCommand: '', active: false, changedAt: '' },
 ];
-export const EMPTY_CONFIG = { version: 2, url: '', token: '', deviceId: '', scenes: structuredClone(DEFAULT_SCENES), automatic: { focusSceneId: '', breakSceneId: '' } };
+export const EMPTY_CONFIG = { version: 3, url: '', token: '', deviceId: '', scenes: structuredClone(DEFAULT_SCENES), automatic: { focusSceneId: '', breakSceneId: '' } };
 // Read only the devices belonging to Alexa Devices; never accept templates from the browser.
 export const DEVICES_TEMPLATE = `{% set ns = namespace(items=[], ids=[]) %}{% for entity in integration_entities('alexa_devices') %}{% set id = device_id(entity) %}{% if id and id not in ns.ids %}{% set ns.ids = ns.ids + [id] %}{% set ns.items = ns.items + [{'id': id, 'name': device_attr(id, 'name_by_user') or device_attr(id, 'name') or 'Dispositivo Alexa'}] %}{% endif %}{% endfor %}{{ ns.items | to_json }}`;
 export const ROUTINES_TEMPLATE = `{% set ns = namespace(items=[]) %}{% for entity in integration_entities('alexa_devices') %}{% if entity.startswith('button.') and not entity.endswith('_restart') %}{% set id = device_id(entity) %}{% set device_name = device_attr(id, 'name_by_user') or device_attr(id, 'name') or '' %}{% set friendly = state_attr(entity, 'friendly_name') or entity %}{% set prefix = device_name ~ ' ' %}{% set display = friendly[(prefix | length):] if device_name and friendly.startswith(prefix) else friendly %}{% set ns.items = ns.items + [{'entityId': entity, 'name': display}] %}{% endif %}{% endfor %}{{ ns.items | to_json }}`;
@@ -40,25 +40,30 @@ export function validateConfig(input, previous = EMPTY_CONFIG) {
   const scenes = input.scenes.map(item => {
     if (!item || typeof item !== 'object' || typeof item.id !== 'string' || !/^[a-zA-Z0-9-]{1,80}$/.test(item.id) || seen.has(item.id)) throw new BridgeError('Las escenas contienen un identificador no válido.');
     seen.add(item.id);
-    const fields = ['name', 'description', 'command'];
+    const fields = ['name', 'description', 'command', 'offCommand'];
     if (fields.some(field => typeof item[field] !== 'string' || /[\x00-\x1f\x7f]/.test(item[field]))) throw new BridgeError('Los textos de las escenas deben estar en una sola línea.');
     const name = item.name.trim();
     const description = item.description.trim();
     const command = item.command.trim();
-    if (!name || name.length > 40 || description.length > 100 || command.length > 180 || !SCENE_ICONS.includes(item.icon)) throw new BridgeError('Revisa el nombre, la descripción, el icono y el comando de tus escenas.');
-    return { id: item.id, name, description, icon: item.icon, command };
+    const offCommand = item.offCommand.trim();
+    if (!name || name.length > 40 || description.length > 100 || command.length > 180 || offCommand.length > 180 || !SCENE_ICONS.includes(item.icon)) throw new BridgeError('Revisa el nombre, la descripción, el icono y los comandos de tus escenas.');
+    const prior = previous.scenes?.find(scene => scene.id === item.id);
+    const sameCommands = prior?.command === command && (prior?.offCommand || '') === offCommand;
+    const changedAt = sameCommands && typeof prior?.changedAt === 'string' && Number.isFinite(Date.parse(prior.changedAt)) ? prior.changedAt : '';
+    return { id: item.id, name, description, icon: item.icon, command, offCommand, active: Boolean(sameCommands && prior?.active), changedAt };
   });
   const automatic = { focusSceneId: input.automatic?.focusSceneId || '', breakSceneId: input.automatic?.breakSceneId || '' };
   if (Object.values(automatic).some(id => typeof id !== 'string' || id && !seen.has(id))) throw new BridgeError('La escena automática seleccionada ya no existe.');
-  return { version: 2, url, token, deviceId: input.deviceId, scenes, automatic };
+  return { version: 3, url, token, deviceId: input.deviceId, scenes, automatic };
 }
 export function migrateConfig(input) {
-  if (input?.version !== 1) return input;
-  return {
+  if (input?.version === 1) return migrateConfig({
     version: 2, url: input.url || '', token: input.token || '', deviceId: input.deviceId || '',
     scenes: DEFAULT_SCENES.map(scene => ({ ...scene, command: typeof input.commands?.[scene.id] === 'string' ? input.commands[scene.id] : '' })),
     automatic: { focusSceneId: input.automatic?.focus === true ? 'focus' : '', breakSceneId: input.automatic?.break === true ? 'break' : '' },
-  };
+  });
+  if (input?.version === 2) return { ...input, version: 3, scenes: input.scenes.map(scene => ({ ...scene, offCommand: '', active: false, changedAt: '' })) };
+  return input;
 }
 export function publicConfig(config) {
   const { token, ...rest } = config;
@@ -67,7 +72,7 @@ export function publicConfig(config) {
 export function createConfigStore(file = resolve('.rasp/alexa.json')) {
   return {
     async load() {
-      try { const raw = JSON.parse(await readFile(file, 'utf8')); if (![1, 2].includes(raw.version)) throw new Error(); return validateConfig(migrateConfig(raw)); }
+      try { const raw = JSON.parse(await readFile(file, 'utf8')); if (![1, 2, 3].includes(raw.version)) throw new Error(); const migrated = migrateConfig(raw); return validateConfig(migrated, migrated); }
       catch (error) { if (error.code === 'ENOENT') return structuredClone(EMPTY_CONFIG); throw new BridgeError('No se pudo leer la configuración guardada. Revisa el archivo de conexión.', 500, 'storage'); }
     },
     async save(config) {
@@ -83,7 +88,10 @@ function reply(res, code, data) {
   res.end(JSON.stringify(data));
 }
 function normalizedCommand(value) {
-  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('es');
+  return textForAlexa(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('es');
+}
+function textForAlexa(value) {
+  return value.trim().replace(/^alexa\s*[,;:]?\s*/i, '');
 }
 async function body(req) {
   let value = '';
@@ -135,7 +143,7 @@ export function createAlexaMiddleware({ store = createConfigStore(), request = f
       if (!req.headers['content-type']?.startsWith('application/json') || req.headers['x-rasp-request'] !== 'alexa') throw new BridgeError('Solicitud no válida.');
       const input = await body(req);
       if (path === '/api/alexa/run') {
-        if (typeof input.scene !== 'string' || !/^[a-zA-Z0-9-]{1,80}$/.test(input.scene) || !/^[a-zA-Z0-9-]{16,80}$/.test(input.requestId || '') || !['manual', 'focus', 'break', 'automatic'].includes(input.source)) throw new BridgeError('Escena no válida.');
+        if (typeof input.scene !== 'string' || !/^[a-zA-Z0-9-]{1,80}$/.test(input.scene) || !/^[a-zA-Z0-9-]{16,80}$/.test(input.requestId || '') || !['manual', 'focus', 'break', 'automatic'].includes(input.source) || input.turnOn !== undefined && typeof input.turnOn !== 'boolean') throw new BridgeError('Escena no válida.');
         if (executions.has(input.requestId)) { const result = await executions.get(input.requestId); return reply(res, result.status, result.data); }
         if (busy) throw new BridgeError('Hay otra operación en curso. Espera a que termine.', 409, 'busy');
         busy = true;
@@ -144,18 +152,27 @@ export function createAlexaMiddleware({ store = createConfigStore(), request = f
             const config = await store.load();
             const scene = config.scenes.find(item => item.id === input.scene);
             if (!scene) throw new BridgeError('Esta escena ya no existe.', 409);
-            if (!scene.command) throw new BridgeError('Asigna una rutina o comando a esta escena en Ajustes → Alexa.', 409);
+            const turnOn = input.turnOn !== false;
+            const command = turnOn ? scene.command : scene.offCommand;
+            if (!command) throw new BridgeError(turnOn ? 'Asigna una rutina o comando para activar esta escena.' : 'Asigna un comando para apagar esta escena.', 409);
             const automaticSource = input.source === 'automatic' ? (config.automatic.focusSceneId === scene.id ? 'focus' : config.automatic.breakSceneId === scene.id ? 'break' : '') : input.source;
             if (automaticSource !== 'manual' && config.automatic[`${automaticSource}SceneId`] !== scene.id) throw new BridgeError('Esta acción automática está desactivada.', 409);
             check = await probe(config);
             if (check.state !== 'ready') throw new BridgeError(check.message, 409, check.state);
-            const routine = check.routines.find(item => normalizedCommand(item.name) === normalizedCommand(scene.command));
+            const routine = check.routines.find(item => normalizedCommand(item.name) === normalizedCommand(command));
+            let message;
             if (routine) {
               await call(config, 'services/button/press', { entity_id: routine.entityId });
-              return { status: 200, data: { message: `Rutina «${routine.name}» enviada a Alexa.`, scene: input.scene, sentAt: new Date().toISOString() } };
+              message = `Rutina «${routine.name}» enviada a Alexa.`;
+            } else {
+              const textCommand = textForAlexa(command);
+              if (!textCommand) throw new BridgeError('Escribe una orden después de “Alexa”.', 409);
+              await call(config, 'services/alexa_devices/send_text_command', { device_id: config.deviceId, text_command: textCommand });
+              message = `Orden para ${turnOn ? 'activar' : 'apagar'} «${scene.name}» enviada a Alexa.`;
             }
-            await call(config, 'services/alexa_devices/send_text_command', { device_id: config.deviceId, text_command: scene.command });
-            return { status: 200, data: { message: 'Comando enviado a Alexa. Comprueba el resultado en tus dispositivos.', scene: input.scene, sentAt: new Date().toISOString() } };
+            const sentAt = new Date().toISOString();
+            await store.save({ ...config, scenes: config.scenes.map(item => item.id === scene.id ? { ...item, active: turnOn, changedAt: sentAt } : item) });
+            return { status: 200, data: { message, scene: input.scene, active: turnOn, sentAt } };
           } catch (error) { return { status: error.status || 500, data: { message: error instanceof BridgeError ? error.message : 'No se pudo enviar la orden a Alexa.', code: error.code || 'error' } }; }
           finally { busy = false; }
         })();

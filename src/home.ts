@@ -16,6 +16,10 @@ export interface HomeRoom {
   name: string;
   slot: string;
   builtIn: boolean;
+  onCommand: string;
+  offCommand: string;
+  assumedOn: boolean;
+  changedAt: string;
   devices: HomeDevice[];
   on: number;
   unavailable: number;
@@ -44,8 +48,8 @@ const DEFAULT_ROOMS = [
 
 export const EMPTY_HOME: HomeState = {
   state: 'loading', message: 'Leyendo tu casa…', updatedAt: '', unassignedDevices: [],
-  rooms: DEFAULT_ROOMS.map(([id, name, slot]) => ({ id, name, slot, builtIn: true, devices: [], on: 0, unavailable: 0 })),
+  rooms: DEFAULT_ROOMS.map(([id, name, slot]) => ({ id, name, slot, builtIn: true, onCommand: '', offCommand: '', assumedOn: false, changedAt: '', devices: [], on: 0, unavailable: 0 })),
 };
 
-export interface HomeRoomDraft { id: string; name: string; slot: string }
+export interface HomeRoomDraft { id: string; name: string; slot: string; onCommand: string; offCommand: string }
 export interface HomeDeviceDraft { entityId: string; name: string; roomId: string }

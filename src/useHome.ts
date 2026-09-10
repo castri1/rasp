@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { EMPTY_HOME } from './home';
 import type { HomeDeviceDraft, HomeRoomDraft, HomeState } from './home';
-import { timeoutSignal } from './browserCompat';
+import { createRequestId, timeoutSignal } from './browserCompat';
 
 async function api(path: string, body?: object) {
   const response = await fetch(`/api/home/${path}`, { method: body ? 'POST' : 'GET', headers: body ? { 'Content-Type': 'application/json', 'X-Rasp-Request': 'home' } : {}, body: body ? JSON.stringify(body) : undefined, signal: timeoutSignal(15000) });
@@ -27,8 +27,12 @@ export function useHome() {
     if (busyRoom) return;
     setBusyRoom(roomId); setError('');
     try {
-      const result = await api('toggle', { roomId, turnOn });
-      setHome(previous => ({ ...previous, message: result.message, rooms: previous.rooms.map(room => roomId === 'all' || room.id === roomId ? { ...room, on: turnOn ? room.devices.length - room.unavailable : 0, devices: room.devices.map(device => ['unknown', 'unavailable'].includes(device.state) ? device : { ...device, state: turnOn ? 'on' : 'off' }) } : room) }));
+      const result = await api('toggle', { roomId, turnOn, requestId: createRequestId() });
+      setHome(previous => ({ ...previous, message: result.message, rooms: previous.rooms.map(room => {
+        const commandChanged = result.control === 'alexa' && room.id === result.roomId || result.control === 'all' && result.roomIds?.includes(room.id);
+        const devicesChanged = result.control !== 'alexa' && (roomId === 'all' || room.id === roomId);
+        return commandChanged ? { ...room, assumedOn: turnOn, changedAt: result.updatedAt } : devicesChanged ? { ...room, on: turnOn ? room.devices.length - room.unavailable : 0, devices: room.devices.map(device => ['unknown', 'unavailable'].includes(device.state) ? device : { ...device, state: turnOn ? 'on' : 'off' }) } : room;
+      }) }));
       window.setTimeout(() => void refresh(), 900);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'No se pudo controlar el ambiente.'); }
     finally { setBusyRoom(null); }
@@ -37,7 +41,7 @@ export function useHome() {
     if (busyRoom) return;
     setBusyRoom(entityId); setError('');
     try {
-      const result = await api('toggle', { entityId, turnOn });
+      const result = await api('toggle', { entityId, turnOn, requestId: createRequestId() });
       setHome(previous => ({ ...previous, message: result.message, rooms: previous.rooms.map(room => ({ ...room, on: room.devices.reduce((count, device) => count + (device.entityId === entityId ? turnOn ? 1 : 0 : device.state === 'on' ? 1 : 0), 0), devices: room.devices.map(device => device.entityId === entityId ? { ...device, state: turnOn ? 'on' : 'off' } : device) })) }));
       window.setTimeout(() => void refresh(), 900);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'No se pudo controlar el dispositivo.'); }

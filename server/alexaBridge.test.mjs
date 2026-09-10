@@ -131,19 +131,36 @@ describe('Alexa through Home Assistant', () => {
       await store.save(configured);
       assert.equal((await stat(file)).mode & 0o777, 0o600);
       assert.equal((await createConfigStore(file).load()).token, token);
-      assert.equal(JSON.parse(await readFile(file, 'utf8')).version, 2);
+      assert.equal(JSON.parse(await readFile(file, 'utf8')).version, 3);
     } finally { await rm(directory, { recursive: true, force: true }); }
   });
   it('migrates the four original scenes without losing phrases or Pomodoro choices', () => {
     const migrated = validateConfig(migrateConfig({ version: 1, url: configured.url, token, deviceId, commands: { focus: 'apaga la zona social', break: '', meeting: 'reunión', evening: '' }, automatic: { focus: true, break: false } }));
-    assert.equal(migrated.version, 2);
+    assert.equal(migrated.version, 3);
     assert.equal(migrated.scenes.find(scene => scene.id === 'focus').command, 'apaga la zona social');
+    assert.equal(migrated.scenes.find(scene => scene.id === 'focus').offCommand, '');
     assert.equal(migrated.automatic.focusSceneId, 'focus');
     assert.equal(migrated.automatic.breakSceneId, '');
   });
   it('accepts custom scenes and rejects duplicate identifiers', () => {
-    const custom = { ...configured, scenes: [...configured.scenes, { id: 'movie-night', name: 'Cine', description: 'Luz suave', icon: 'lamp', command: 'activa cine' }] };
+    const custom = { ...configured, scenes: [...configured.scenes, { id: 'movie-night', name: 'Cine', description: 'Luz suave', icon: 'lamp', command: 'activa cine', offCommand: 'apaga cine', active: false, changedAt: '' }] };
     assert.equal(validateConfig(custom).scenes.at(-1).name, 'Cine');
     assert.throws(() => validateConfig({ ...custom, scenes: [...custom.scenes, { ...custom.scenes[0] }] }));
+  });
+  it('uses the off phrase on the second scene tap and persists the estimated state', async () => {
+    const calls = [];
+    const toggleConfig = { ...configured, scenes: configured.scenes.map(scene => scene.id === 'focus' ? { ...scene, command: 'Alexa, activa enfoque rasp', offCommand: 'Alexa, apaga enfoque rasp' } : scene) };
+    const saved = memoryStore(toggleConfig);
+    await serve({ store: saved, request: upstream(calls) }, async request => {
+      const on = await request('run', { scene: 'focus', source: 'manual', turnOn: true, requestId: 'scene-toggle-on-001' });
+      assert.equal(on.status, 200);
+      assert.equal(on.data.active, true);
+      assert.equal((await request('config')).data.config.scenes.find(scene => scene.id === 'focus').active, true);
+      const off = await request('run', { scene: 'focus', source: 'manual', turnOn: false, requestId: 'scene-toggle-off-01' });
+      assert.equal(off.status, 200);
+      assert.equal(off.data.active, false);
+      assert.equal((await request('config')).data.config.scenes.find(scene => scene.id === 'focus').active, false);
+      assert.deepEqual(calls.filter(call => call.url.endsWith('send_text_command')).map(call => JSON.parse(call.options.body).text_command), ['activa enfoque rasp', 'apaga enfoque rasp']);
+    });
   });
 });
