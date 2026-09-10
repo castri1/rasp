@@ -28,6 +28,7 @@ function upstream(calls) {
         { entityId: 'light.lampara_sala', name: 'Lámpara', area: 'Sala', domain: 'light', state: 'on', brightness: 128 },
         { entityId: 'switch.balcon', name: 'Guirnalda', area: 'Balcon', domain: 'switch', state: 'off', brightness: 0 },
         { entityId: 'light.sin_area_conocida', name: 'Otra', area: 'Garaje', domain: 'light', state: 'on', brightness: 255 },
+        { entityId: 'switch.echo_dot_sala_do_not_disturb', name: 'Echo Dot Sala Do not disturb', area: '', domain: 'switch', state: 'on', brightness: 0 },
       ]);
     }
     if (url.endsWith('/services/homeassistant/turn_off')) return Response.json([]);
@@ -45,6 +46,8 @@ describe('Home Assistant house bridge', () => {
       assert.equal(result.data.rooms.find(room => room.id === 'sala').on, 1);
       assert.equal(result.data.rooms.find(room => room.id === 'balcon').devices[0].entityId, 'switch.balcon');
       assert.equal(result.data.rooms.find(room => room.id === 'cocina').devices.length, 0);
+      assert.equal(result.data.unassignedDevices.length, 1);
+      assert.ok(!JSON.stringify(result.data).includes('do_not_disturb'));
       assert.ok(!JSON.stringify(result.data).includes(config.token));
     });
   });

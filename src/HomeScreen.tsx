@@ -122,7 +122,7 @@ export default function HomeScreen({ controller }: { controller: HomeController 
             const selected = room.id === selectedRoom?.id;
             return <g key={room.id} className={`plan-room ${active ? 'is-on' : ''} ${selected ? 'is-selected' : ''}`} role="button" tabIndex={0} aria-label={`${room.name}. ${roomStatus(room)}`} onClick={() => setSelectedRoomId(room.id)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') setSelectedRoomId(room.id); }}>
               <path d={shape.d} />
-              <circle cx={shape.x - 2} cy={shape.y - (lines.length > 1 ? 13 : 8)} r="4" />
+              <circle cx={shape.x - 2} cy={shape.y - 18} r="3.5" />
               <text x={shape.x} y={shape.y} textAnchor="middle">{lines.map((line, index) => <tspan key={line} x={shape.x} dy={index ? 14 : 0}>{line}</tspan>)}</text>
               <text className="plan-device-count" x={shape.x} y={shape.y + (lines.length > 1 ? 32 : 19)} textAnchor="middle">{room.devices.length ? `${room.on}/${room.devices.length} activos` : 'sin dispositivos'}</text>
             </g>;

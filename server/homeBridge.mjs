@@ -43,6 +43,11 @@ function validEntityId(value) {
   return typeof value === 'string' && /^(light|switch)\.[a-z0-9_]+$/.test(value);
 }
 
+function isHouseControl(item) {
+  if (!validEntityId(item?.entityId) || !['light', 'switch'].includes(item.domain)) return false;
+  return item.domain !== 'switch' || !/_(do_not_disturb|announcements|communications)$/.test(item.entityId);
+}
+
 export function validateHomeConfig(input) {
   if (!input || typeof input !== 'object' || !Array.isArray(input.rooms) || input.rooms.length < HOUSE_ROOMS.length || input.rooms.length > 16) throw new HomeError('Configura entre 10 y 16 ambientes.');
   const ids = new Set();
@@ -144,7 +149,7 @@ export function createHomeMiddleware({ store = createConfigStore(), configStore 
   async function discoveredDevices(config) {
     const result = await call(config, 'template', { template: HOME_ENTITIES_TEMPLATE });
     if (!Array.isArray(result)) throw new HomeError('No se pudo leer el estado de los ambientes.', 502);
-    return result.filter(item => validEntityId(item?.entityId) && typeof item.name === 'string' && typeof item.area === 'string' && ['light', 'switch'].includes(item.domain) && ['on', 'off', 'unavailable', 'unknown'].includes(item.state)).map(item => ({
+    return result.filter(item => isHouseControl(item) && typeof item.name === 'string' && typeof item.area === 'string' && ['on', 'off', 'unavailable', 'unknown'].includes(item.state)).map(item => ({
       entityId: item.entityId, name: item.name.slice(0, 100), area: item.area.slice(0, 100), domain: item.domain, state: item.state,
       brightness: Number.isFinite(Number(item.brightness)) ? Math.max(0, Math.min(255, Number(item.brightness))) : 0,
     }));
