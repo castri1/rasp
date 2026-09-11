@@ -2,8 +2,8 @@
 .app-preview-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 0 3px 5px; font-size: 10px; color: var(--text-faint); }
 .app-preview-toolbar a { display: flex; align-items: center; gap: 5px; color: var(--highlight); text-decoration: none; min-height: 32px; }
 .device-footer { align-items: center; padding-bottom: 0; height: 48px; }
-.device-nav { display: flex; align-items: center; gap: 5px; }
-.device-nav button { display: flex; align-items: center; justify-content: center; gap: 4px; height: 44px; padding: 0 7px; min-width: 72px; background: transparent; color: var(--text-muted); border-radius: 7px; font-size: 9px; position: relative; font-variant-numeric: tabular-nums; }
+.device-nav { display: flex; align-items: center; gap: 2px; }
+.device-nav button { display: flex; align-items: center; justify-content: center; gap: 3px; height: 44px; padding: 0 5px; min-width: 61px; background: transparent; color: var(--text-muted); border-radius: 7px; font-size: 8px; position: relative; font-variant-numeric: tabular-nums; }
 .device-nav button[aria-current='page'] { background: var(--highlight-10); color: var(--highlight); }
 .device-nav button:hover { background: var(--highlight-05); color: var(--text-primary); }
 .nav-alert-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--amber); }

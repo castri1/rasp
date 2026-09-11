@@ -34,7 +34,7 @@
 .ambience-feedback > svg, .feedback-mark { color: var(--highlight); flex-shrink: 0; }
 .ambience-feedback.has-error { color: var(--warning); }
 .feedback-mark { display: grid; place-items: center; }
-.device-nav button { min-width: 72px; padding-left: 7px; padding-right: 7px; }
+.device-nav button { min-width: 61px; padding-left: 5px; padding-right: 5px; }
 
 /* Alexa configuration stays inside the same touch canvas. */
 .alexa-settings { display: flex; flex-direction: column; min-height: 0; height: 100%; }

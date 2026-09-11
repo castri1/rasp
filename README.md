@@ -1,8 +1,8 @@
 # rasp · Tu día, en calma
 
-Aplicación para una pantalla táctil horizontal de 7 pulgadas, con agenda, Pomodoro, control del hogar y un fondo nocturno animado integrados en un lienzo de 800 × 480. Incluye un entorno externo para probar escenarios de calendario a tamaño original o ampliado.
+Aplicación para una pantalla táctil horizontal de 7 pulgadas, con agenda, alarmas, timers, Pomodoro, bloqueo de pantalla, control del hogar y un fondo nocturno animado integrados en un lienzo de 800 × 480. Incluye un entorno externo para probar escenarios de calendario a tamaño original o ampliado.
 
-**Funcional hoy:** agenda diaria, semanal y mensual, pendientes de las listas elegidas en Recordatorios, temporizador real, preferencias de colores persistentes, cuatro paletas completas, fondo nocturno configurable, conexión de solo lectura con Google Calendar y un acompañante seguro para abrir Google Meet en el Mac. **Datos de ejemplo:** el entorno de demostración fuera de `/app`.
+**Funcional hoy:** agenda diaria, semanal y mensual, pendientes de las listas elegidas en Recordatorios, alarmas diarias y timers con nombre, Pomodoro, bloqueo mediante PIN, preferencias de colores persistentes, cuatro paletas completas, fondo nocturno configurable, conexión de solo lectura con Google Calendar y un acompañante seguro para abrir Google Meet en el Mac. **Datos de ejemplo:** el entorno de demostración fuera de `/app`.
 
 ## Ejecutar
 
@@ -46,7 +46,7 @@ bash scripts/update-pi.sh
 sudo reboot
 ```
 
-La actualización conserva la conexión de calendario, colores, Pomodoro y demás
+La actualización conserva la conexión de calendario, colores, alarmas, PIN, Pomodoro y demás
 datos locales, almacenados fuera del repositorio en
 `~/.local/share/rasp/.rasp` y en el perfil local de Chromium.
 
@@ -108,13 +108,14 @@ npm test
 
 ## Ajustes y paletas
 
-La navegación inferior **Agenda · Tareas · Pomodoro · Casa · Escenas · Noche · Ajustes** pertenece a la aplicación. En Ajustes encontrarás:
+La navegación inferior **Agenda · Tareas · Alarmas · Pomodoro · Casa · Escenas · Noche · Ajustes** pertenece a la aplicación. En Ajustes encontrarás:
 
 - **Paletas:** Azul noche, Bosque, Arcilla y Grafito. Cada preset cambia la combinación completa, incluidas superficies, reloj, botones, alertas, participantes y marco exterior.
 - **Colores:** 37 campos en seis categorías, con selector, código HEX y restauración individual.
 - **Noche:** horario, anticipación de reuniones, atmósfera, movimiento, densidad, brillo y calidad del fondo animado.
 - **Calendario:** conexión de solo lectura con Google Workspace y estado de sincronización.
 - **Mi Mac:** estado del atajo, instrucciones y activación opcional de No molestar.
+- **Bloqueo:** creación y cambio de un PIN numérico de 4 a 6 dígitos.
 
 Los cambios de color se aplican inmediatamente y se guardan en localStorage (`rasp.colors.v1`). Deshacer conserva hasta 50 cambios de la sesión; el botón de restauración recupera Azul noche. El reinicio de los escenarios de demostración no borra preferencias ni detiene el Pomodoro. La vista previa y la aplicación comparten preferencias en pestañas del mismo origen. No se sincronizan entre computadores, navegadores ni direcciones de servidor distintas.
 
@@ -140,7 +141,21 @@ Selecciona enfoque o descanso, elige entre 1 y 120 minutos y pulsa Comenzar. Pue
 
 El temporizador utiliza una hora de finalización real, independiente del reloj de demostración. Se conserva al navegar y recargar, y corrige el tiempo transcurrido tras una pestaña suspendida o el reposo del computador. No inicia otra sesión automáticamente. Al terminar, muestra el estado completado y propone preparar un descanso; en otras pantallas aparece un aviso que permite volver al Pomodoro. Las alertas de reuniones siguen visibles desde Pomodoro y Ajustes.
 
-Se guarda en localStorage (`rasp.pomodoro.v1`). Si el almacenamiento no está disponible, la interfaz lo indica. Mientras la página está cerrada no emite avisos; recupera el estado al volver a abrirla. No incluye todavía alarmas de audio ni notificaciones del sistema.
+Se guarda en localStorage (`rasp.pomodoro.v1`). Si el almacenamiento no está disponible, la interfaz lo indica. Mientras la página está cerrada no emite avisos; recupera el estado al volver a abrirla. La finalización del Pomodoro y las alarmas usan avisos visuales dentro de Rasp; no emiten audio ni notificaciones del sistema.
+
+## Alarmas y timers
+
+La pantalla **Alarmas** permite crear hasta veinte alarmas diarias y veinte timers. Cada aviso tiene un nombre de hasta 40 caracteres. Las alarmas se ejecutan todos los días a la hora elegida y pueden activarse, pausarse, editarse o borrarse. Los timers aceptan entre 1 y 720 minutos, incluyen duraciones rápidas y se pueden pausar o continuar.
+
+Al cumplirse el tiempo, una animación cubre cualquier pantalla de Rasp, incluida la pantalla bloqueada y el fondo nocturno. El botón grande **Descartar** cierra el aviso; si hay varios pendientes, se muestran uno tras otro. **Probar animación** permite comprobar el resultado sin crear una alarma.
+
+La configuración se conserva en el perfil local de Chromium (`rasp.alarms.v1`). Los timers usan una hora de finalización real y recuperan el tiempo correcto después de recargar. Las alarmas diarias están pensadas para la Raspberry encendida con Rasp abierto en modo kiosco.
+
+## Bloqueo de pantalla
+
+En **Ajustes → Bloqueo** se crea un PIN de 4 a 6 números. Después, el candado de la parte superior bloquea la pantalla y muestra una composición animada distinta del fondo nocturno, junto con la hora y la fecha. Al tocarla aparece un teclado numérico de botones grandes. Tras cinco intentos incorrectos, el teclado espera 30 segundos antes de aceptar otro intento.
+
+El PIN nunca se guarda como texto. Chromium conserva una sal aleatoria y un hash PBKDF2-SHA-256 en `rasp.screen-lock.config.v1`; el estado bloqueado se conserva en `rasp.screen-lock.locked.v1`, por lo que el dispositivo continúa bloqueado si se reinicia el kiosco. Las alarmas pueden descartarse sin desbloquear la agenda.
 
 ## Google Calendar empresarial
 
@@ -210,6 +225,8 @@ Referencia de Apple: [Ejecutar atajos desde la línea de comandos](https://suppo
 - `src/theme.ts`, `src/presets.ts`, `src/useTheme.ts`: colores, presets, validación, persistencia y deshacer.
 - `src/wallpaper.ts`, `src/useWallpaper.ts`, `src/NightWallpaper.tsx`: horario nocturno, configuración persistente y render generativo adaptativo.
 - `src/pomodoro.ts`, `src/usePomodoro.ts`, `src/PomodoroScreen.tsx`: estado del temporizador, persistencia y pantalla.
+- `src/alarms.ts`, `src/useAlarms.ts`, `src/AlarmsScreen.tsx`, `src/AlarmOverlay.tsx`: alarmas diarias, timers, persistencia y aviso superpuesto.
+- `src/screenLock.ts`, `src/useScreenLock.ts`, `src/LockScreen.tsx`, `src/LockSettings.tsx`: PIN protegido, bloqueo persistente y teclado numérico.
 - `src/useReminders.ts`, `src/TasksScreen.tsx`: selección de listas, sincronización y pantalla de pendientes.
 - `src/macFocus.ts`: cliente del acompañante de macOS.
 - `server/macBridge.mjs`, `server/macCompanion.mjs`, `server/reminders.mjs`: puente autenticado, apertura validada de Meet, control de No molestar y acceso limitado a Recordatorios.
